@@ -2,7 +2,6 @@
 const mongoose = require("mongoose");
 
 // Регулярное выражение для валидации номера телефона
-// Например, для номеров в формате +7xxxxxxxxxx
 const phoneValidator = /^(\+7)[0-9]{10}$/;
 
 const UserSchema = new mongoose.Schema(
@@ -23,6 +22,9 @@ const UserSchema = new mongoose.Schema(
           `${props.value} is not a valid phone number! Format: +7xxxxxxxxxx`,
       },
     },
+    hashedPassword: { type: String, required: true }, // Добавлено поле для пароля
+    otp: { type: String }, // Для хранения OTP
+    otpExpiry: { type: Date }, // Время истечения OTP
   },
   { timestamps: true }
 );
