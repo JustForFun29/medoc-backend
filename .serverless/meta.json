@@ -1,0 +1,74 @@
+{
+  "C:\\Projects\\medoc-backend": {
+    "versionSfCore": null,
+    "versionFramework": "4.4.7",
+    "isWithinCompose": false,
+    "isCompose": false,
+    "composeOrgName": null,
+    "composeResolverProviders": {
+      "default-aws-credential-resolver": "<REDACTED>"
+    },
+    "composeServiceName": null,
+    "servicePath": "C:\\Projects\\medoc-backend",
+    "serviceConfigFileName": "serverless.yml",
+    "service": {
+      "service": "medoc-service",
+      "provider": {
+        "name": "yandex-cloud",
+        "runtime": "nodejs14",
+        "memorySize": 128,
+        "timeout": 30
+      },
+      "functions": {
+        "main": {
+          "handler": "app.js",
+          "events": [
+            {
+              "http": {
+                "path": "/",
+                "method": "any"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "serviceRawFile": "service: medoc-service\r\n\r\nprovider:\r\n  name: yandex-cloud\r\n  runtime: nodejs14\r\n  memorySize: 128 # можно увеличить при необходимости\r\n  timeout: 30 # максимум 300 секунд\r\n\r\nfunctions:\r\n  main:\r\n    handler: app.js\r\n    events:\r\n      - http:\r\n          path: / # корень вашего API\r\n          method: any\r\n",
+    "command": [
+      "create"
+    ],
+    "options": {
+      "template": "aws-nodejs"
+    },
+    "error": {
+      "message": "Serverless Framework V.4 only supports \"aws\" as a Provider. Please look into Extensions for a better multi-Provider experience.",
+      "code": "FRAMEWORK_UNSUPPORTED_PROVIDER"
+    },
+    "params": {},
+    "machineId": "aa924a4dfdd814f6c43c9ef5db603805",
+    "stage": "dev",
+    "accessKeyV2": "<REDACTED>",
+    "accessKeyV1": "<REDACTED>",
+    "orgId": "ffde1e9b-cb01-44c0-a472-c512f85fcf06",
+    "orgName": "medsuch",
+    "userId": "GLNSYv2VdKLxB40g0t",
+    "dashboard": {
+      "isEnabledForService": false,
+      "requiredAuthentication": true,
+      "orgFeaturesInUse": null,
+      "orgObservabilityIntegrations": null,
+      "serviceAppId": null,
+      "serviceProvider": null,
+      "instanceParameters": null
+    },
+    "userName": "medsuch",
+    "subscription": null,
+    "userEmail": "dimashumbetzhan@gmail.com",
+    "projectType": "traditional",
+    "serviceProviderAwsCfStackId": null,
+    "serviceProviderAwsCfStackCreated": null,
+    "serviceProviderAwsCfStackUpdated": null,
+    "serviceProviderAwsCfStackStatus": null,
+    "serviceProviderAwsCfStackOutputs": null
+  }
+}
