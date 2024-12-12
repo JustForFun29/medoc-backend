@@ -6,7 +6,6 @@ const phoneValidator = /^7\d{10}$/;
 
 const UserSchema = new mongoose.Schema(
   {
-    email: { type: String, required: true, unique: true },
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
     fathersName: { type: String, required: true },
@@ -23,8 +22,6 @@ const UserSchema = new mongoose.Schema(
       },
     },
     hashedPassword: { type: String, required: true }, // Поле для хешированного пароля
-    otp: { type: String }, // Для хранения OTP
-    otpExpiry: { type: Date }, // Время истечения OTP
   },
   { timestamps: true }
 );
