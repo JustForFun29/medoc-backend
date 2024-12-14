@@ -2,6 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const File = require("../models/File"); // Импорт модели файлов
 const authMiddleware = require("../middleware/authMiddleware"); // Импорт middleware
 
@@ -20,59 +21,87 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, UPLOAD_DIR);
   },
-  filename: async (req, file, cb) => {
-    const { filename } = req.body;
-
-    if (!filename) {
-      return cb(new Error("Отсутствует имя файла"));
-    }
-
-    // Проверяем наличие файла с таким именем
-    const fileExists = fs.existsSync(
-      path.join(UPLOAD_DIR, `${filename}${path.extname(file.originalname)}`)
-    );
-    if (fileExists) {
-      return cb(new Error("Файл с таким именем уже существует"));
-    }
-
-    // Добавляем расширение оригинального файла
-    const fileExtension = path.extname(file.originalname);
-    cb(null, `${filename}${fileExtension}`);
+  filename: (req, file, cb) => {
+    // Генерируем уникальное имя файла (UUID + текущая метка времени)
+    const uniqueName = `${Date.now()}-${randomUUID()}${path.extname(
+      file.originalname
+    )}`;
+    cb(null, uniqueName);
   },
 });
 
-const upload = multer({ storage });
+// Middleware для обработки multipart/form-data
+const upload = multer({
+  storage,
+  fileFilter: async (req, file, cb) => {
+    try {
+      const { documentTitle } = req.body;
+
+      // Проверка наличия названия документа
+      if (!documentTitle) {
+        return cb(new Error("Название документа отсутствует"));
+      }
+
+      // Проверка уникальности названия документа
+      const existingFile = await File.findOne({ documentTitle });
+      if (existingFile) {
+        return cb(new Error("Документ с таким названием уже существует"));
+      }
+
+      cb(null, true);
+    } catch (err) {
+      cb(err);
+    }
+  },
+});
 
 // 1. Загрузка файла
 router.post(
   "/upload",
   authMiddleware,
-  upload.single("file"),
+  (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  },
   async (req, res) => {
     try {
-      const { filename, isPublic } = req.body;
+      const { documentTitle, isPublic } = req.body;
 
       if (!req.file) {
-        return res.status(400).json({ message: "No file provided" });
+        return res.status(400).json({ message: "Файл отсутствует в запросе" });
       }
 
       // Сохраняем файл в базе данных
       const newFile = new File({
-        fileName: req.file.filename,
-        filePath: `/uploads/${req.file.filename}`,
+        fileName: req.file.filename, // Сгенерированное случайное имя файла
+        documentTitle, // Название документа, видимое пользователю
+        filePath: `/uploads/${req.file.filename}`, // Путь к файлу
         createdBy: req.user.id, // Используем req.user, установленный middleware
-        isPublic: isPublic || false,
+        isPublic: isPublic === "true", // Преобразуем строку в булево значение
       });
 
       await newFile.save();
 
-      res
-        .status(201)
-        .json({ message: "File uploaded successfully", file: newFile });
+      res.status(201).json({
+        message: "Файл успешно загружен",
+        file: newFile,
+      });
     } catch (error) {
-      res
-        .status(500)
-        .json({ message: "Error uploading file", error: error.message });
+      // Удаляем файл, если он был сохранён, но произошла ошибка в логике
+      if (req.file) {
+        const filePath = path.join(UPLOAD_DIR, req.file.filename);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      res.status(500).json({
+        message: "Ошибка при загрузке файла",
+        error: error.message,
+      });
     }
   }
 );
@@ -82,13 +111,13 @@ router.get("/", authMiddleware, async (req, res) => {
   try {
     const files = await File.find({
       $or: [{ createdBy: req.user.id }, { isPublic: true }],
-    }).select("fileName filePath createdAt isPublic");
+    }).select("documentTitle filePath createdAt isPublic");
 
     res.status(200).json({ files });
   } catch (error) {
     res
       .status(500)
-      .json({ message: "Error fetching files", error: error.message });
+      .json({ message: "Ошибка при получении файлов", error: error.message });
   }
 });
 
@@ -121,9 +150,10 @@ router.delete("/files/:fileId", authMiddleware, async (req, res) => {
 
     res.status(200).json({ message: "Файл успешно удалён" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Ошибка при удалении файла", error: error.message });
+    res.status(500).json({
+      message: "Ошибка при удалении файла",
+      error: error.message,
+    });
   }
 });
 

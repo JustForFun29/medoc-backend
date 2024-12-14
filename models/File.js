@@ -1,14 +1,15 @@
 const mongoose = require("mongoose");
 
 const FileSchema = new mongoose.Schema({
-  fileName: { type: String, required: true },
-  filePath: { type: String, required: true },
+  documentTitle: { type: String, required: true, unique: true }, // Название документа (уникальное)
+  fileName: { type: String, required: true }, // Название файла
+  filePath: { type: String, required: true }, // Путь к файлу
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
-  isPublic: { type: Boolean, default: false }, // Указывает, доступен ли файл всем
+  isPublic: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
 });
 
