@@ -1,6 +1,7 @@
 // app.js
 const express = require("express");
 const dotenv = require("dotenv");
+const cors = require("cors");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const documentRoutes = require("./routes/documentRoutes");
@@ -14,6 +15,9 @@ connectDB();
 
 const app = express();
 app.use(express.json()); // Парсинг JSON запросов
+
+// Добавление CORS
+app.use(cors());
 
 // Маршруты для авторизации и регистрации
 app.use("/api/auth", authRoutes);
