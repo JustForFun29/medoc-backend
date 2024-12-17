@@ -194,4 +194,42 @@ router.get("/me", authMiddleware, async (req, res) => {
   }
 });
 
+// GET: Получение данных о текущей клинике
+router.get("/clinic/me", authMiddleware, async (req, res) => {
+  try {
+    // Проверяем, что это запрос от клиники
+    if (req.user.type !== "clinic") {
+      return res
+        .status(403)
+        .json({ message: "Доступ разрешен только клиникам" });
+    }
+
+    // Находим данные клиники по ID из токена
+    const clinic = await Clinic.findById(req.user.id).select(
+      "clinicName firstName lastName fathersName phoneNumber login"
+    );
+
+    if (!clinic) {
+      return res.status(404).json({ message: "Клиника не найдена" });
+    }
+
+    // Возвращаем данные о клинике
+    res.status(200).json({
+      clinicName: clinic.clinicName,
+      responsible: {
+        firstName: clinic.firstName,
+        lastName: clinic.lastName,
+        fathersName: clinic.fathersName,
+      },
+      phoneNumber: clinic.phoneNumber,
+      login: clinic.login,
+    });
+  } catch (error) {
+    console.error("Ошибка при получении данных клиники:", error);
+    res
+      .status(500)
+      .json({ message: "Ошибка при получении данных", error: error.message });
+  }
+});
+
 module.exports = router;
