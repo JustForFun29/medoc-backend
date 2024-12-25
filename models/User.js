@@ -1,8 +1,7 @@
-// models/User.js
 const mongoose = require("mongoose");
 
-// Регулярное выражение для валидации номера телефона (начинается с 7 и содержит 11 цифр)
 const phoneValidator = /^7\d{10}$/;
+const emailValidator = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Простая валидация email
 
 const UserSchema = new mongoose.Schema(
   {
@@ -15,21 +14,31 @@ const UserSchema = new mongoose.Schema(
       unique: true,
       validate: {
         validator: function (v) {
-          return phoneValidator.test(v); // проверка, что номер соответствует формату "7xxxxxxxxxx"
+          return phoneValidator.test(v);
         },
         message: (props) =>
           `${props.value} is not a valid phone number! Format: 7xxxxxxxxxx`,
       },
     },
-    hashedPassword: { type: String, required: true }, // Поле для хешированного пароля
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      validate: {
+        validator: function (v) {
+          return emailValidator.test(v);
+        },
+        message: (props) => `${props.value} is not a valid email address!`,
+      },
+    },
+    hashedPassword: { type: String, required: true },
   },
   { timestamps: true }
 );
 
-// Удаление "+" из phoneNumber перед сохранением
 UserSchema.pre("save", function (next) {
   if (this.phoneNumber.startsWith("+")) {
-    this.phoneNumber = this.phoneNumber.slice(1); // удаляем "+" в начале номера
+    this.phoneNumber = this.phoneNumber.slice(1);
   }
   next();
 });

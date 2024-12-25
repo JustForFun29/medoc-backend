@@ -19,19 +19,18 @@ const router = express.Router();
  * @param {string} [user.clinicName] - Название клиники (только для клиник)
  * @returns {string} - Сгенерированный JWT токен
  */
-const generateToken = (user) => {
-  // Формируем полезную нагрузку токена
+const generateToken = (user, type) => {
   const payload = {
     id: user._id,
-    type: user.type, // "user" или "clinic"
+    type: type,
     firstName: user.firstName,
     lastName: user.lastName,
     fathersName: user.fathersName,
     phoneNumber: user.phoneNumber,
-    ...(user.type === "clinic" && { clinicName: user.clinicName }), // Добавляем название клиники только для клиник
+    email: user.email,
+    ...(user.type === "clinic" && { clinicName: user.clinicName }),
   };
 
-  // Генерируем токен с заданным сроком действия (7 дней)
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
@@ -69,6 +68,9 @@ const generateToken = (user) => {
  *               phoneNumber:
  *                 type: string
  *                 example: "71234567890"
+ *               email:
+ *                 type: string
+ *                 example: "test@gmail.com"
  *               password:
  *                 type: string
  *                 example: "password123"
@@ -91,40 +93,33 @@ const generateToken = (user) => {
  *         description: Ошибка сервера
  */
 router.post("/register/user", async (req, res) => {
-  const { firstName, lastName, fathersName, phoneNumber, password } = req.body;
+  const { firstName, lastName, fathersName, phoneNumber, email, password } =
+    req.body;
 
   try {
-    // Проверяем, существует ли пользователь с таким номером телефона
-    const existingUser = await User.findOne({ phoneNumber });
+    const existingUser = await User.findOne({
+      $or: [{ phoneNumber }, { email }],
+    });
     if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "User with this phone number already exists" });
+      return res.status(400).json({
+        message: "User with this phone number or email already exists",
+      });
     }
 
-    // Хешируем пароль
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Создаём нового пользователя
     const newUser = new User({
       firstName,
       lastName,
       fathersName,
       phoneNumber,
+      email,
       hashedPassword,
     });
 
     await newUser.save();
 
-    // Генерируем токен, передавая объект пользователя
-    const token = generateToken({
-      _id: newUser._id,
-      type: "user",
-      firstName: newUser.firstName,
-      lastName: newUser.lastName,
-      fathersName: newUser.fathersName,
-      phoneNumber: newUser.phoneNumber,
-    });
+    const token = generateToken(newUser, "user");
 
     res.status(201).json({
       message: "User registered successfully",
@@ -165,6 +160,9 @@ router.post("/register/user", async (req, res) => {
  *               phoneNumber:
  *                 type: string
  *                 example: "79998887766"
+ *               email:
+ *                 type: string
+ *                 example: "test@gmail.com"
  *               login:
  *                 type: string
  *                 example: "clinic_login"
@@ -196,47 +194,38 @@ router.post("/register/clinic", async (req, res) => {
     lastName,
     fathersName,
     phoneNumber,
+    email,
     login,
     password,
   } = req.body;
 
   try {
-    // Проверяем, существует ли клиника с таким логином или номером телефона
     const existingClinic = await Clinic.findOne({
-      $or: [{ phoneNumber }, { login }],
+      $or: [{ phoneNumber }, { email }, { login }],
     });
     if (existingClinic) {
       return res.status(400).json({
-        message: "Clinic with this login or phone number already exists",
+        message:
+          "Clinic with this phone number, email, or login already exists",
       });
     }
 
-    // Хешируем пароль
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Создаём новую клинику
     const newClinic = new Clinic({
       clinicName,
       firstName,
       lastName,
       fathersName,
       phoneNumber,
+      email,
       login,
       hashedPassword,
     });
 
     await newClinic.save();
 
-    // Генерируем токен, передавая объект клиники
-    const token = generateToken({
-      _id: newClinic._id,
-      type: "clinic",
-      clinicName: newClinic.clinicName,
-      firstName: newClinic.firstName,
-      lastName: newClinic.lastName,
-      fathersName: newClinic.fathersName,
-      phoneNumber: newClinic.phoneNumber,
-    });
+    const token = generateToken(newClinic, "clinic");
 
     res.status(201).json({
       message: "Clinic registered successfully",
@@ -303,7 +292,7 @@ router.post("/login/user", async (req, res) => {
     // Добавляем type "user" к объекту перед генерацией токена
     user.type = "user";
 
-    const token = generateToken(user);
+    const token = generateToken(user, "user");
     res.status(200).json({ message: "Login successful", token });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -366,7 +355,7 @@ router.post("/login/clinic", async (req, res) => {
     // Добавляем type "clinic" к объекту перед генерацией токена
     clinic.type = "clinic";
 
-    const token = generateToken(clinic);
+    const token = generateToken(clinic, "clinic");
     res.status(200).json({ message: "Login successful", token });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -405,6 +394,8 @@ router.post("/login/clinic", async (req, res) => {
  *                       type: string
  *                     phoneNumber:
  *                       type: string
+ *                     email:
+ *                       type: string
  *       401:
  *         description: Токен отсутствует или недействителен
  *       500:
@@ -416,7 +407,7 @@ router.get("/me", authMiddleware, async (req, res) => {
 
     if (type === "user") {
       const user = await User.findById(id).select(
-        "firstName lastName fathersName phoneNumber"
+        "firstName lastName fathersName phoneNumber email"
       );
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -428,13 +419,14 @@ router.get("/me", authMiddleware, async (req, res) => {
           lastName: user.lastName,
           fathersName: user.fathersName,
           phoneNumber: user.phoneNumber,
+          email: user.email,
         },
       });
     }
 
     if (type === "clinic") {
       const clinic = await Clinic.findById(id).select(
-        "clinicName firstName lastName fathersName phoneNumber"
+        "clinicName firstName lastName fathersName phoneNumber email"
       );
       if (!clinic) {
         return res.status(404).json({ message: "Clinic not found" });
@@ -447,6 +439,7 @@ router.get("/me", authMiddleware, async (req, res) => {
           lastName: clinic.lastName,
           fathersName: clinic.fathersName,
           phoneNumber: clinic.phoneNumber,
+          email: clinic.email, // Возвращаем email
         },
       });
     }
