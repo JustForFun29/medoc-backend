@@ -381,6 +381,8 @@ router.post("/login/clinic", async (req, res) => {
  *       - Auth
  *     summary: Получение данных текущего пользователя
  *     description: Возвращает данные о текущем пользователе или клинике на основе JWT токена.
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Успешное получение данных
@@ -403,8 +405,8 @@ router.post("/login/clinic", async (req, res) => {
  *                       type: string
  *                     phoneNumber:
  *                       type: string
- *       400:
- *         description: Неверный тип пользователя
+ *       401:
+ *         description: Токен отсутствует или недействителен
  *       500:
  *         description: Ошибка сервера
  */
@@ -462,6 +464,8 @@ router.get("/me", authMiddleware, async (req, res) => {
  *     tags:
  *       - Auth
  *     summary: Получение данных текущей клиники
+ *     security:
+ *       - bearerAuth: []
  *     description: Возвращает данные о текущей клинике на основе JWT токена.
  *     responses:
  *       200:

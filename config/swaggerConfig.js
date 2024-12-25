@@ -8,6 +8,20 @@ const swaggerOptions = {
       version: "1.0.0",
       description: "API документация для Medoc Backend",
     },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http", // Исправлено с "https" на "http"
+          scheme: "bearer",
+          bearerFormat: "JWT",
+        },
+      },
+    },
+    security: [
+      {
+        bearerAuth: [], // Название схемы безопасности должно быть одинаковым везде
+      },
+    ],
     servers: [
       {
         url: "https://medoc.vastness.ru", // URL вашего сервера
