@@ -1,14 +1,14 @@
 // app.js
-const express = require("express");
 const dotenv = require("dotenv");
+// Загрузка переменных окружения
+dotenv.config();
+
+const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const fileRoutes = require("./routes/fileRoutes");
-
-// Загрузка переменных окружения
-dotenv.config();
 
 // Подключение к MongoDB
 connectDB();
