@@ -10,7 +10,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: "https://vastness.ru", // URL вашего сервера
+        url: "https://medoc.vastness.ru", // URL вашего сервера
       },
     ],
   },
