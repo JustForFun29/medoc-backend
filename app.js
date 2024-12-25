@@ -9,6 +9,8 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const fileRoutes = require("./routes/fileRoutes");
+const swaggerDocs = require("./config/swaggerConfig"); // Импорт Swagger конфигурации
+const swaggerUi = require("swagger-ui-express"); // Добавьте это в начале файла
 
 // Подключение к MongoDB
 connectDB();
@@ -18,6 +20,9 @@ app.use(express.json()); // Парсинг JSON запросов
 
 // Добавление CORS
 app.use(cors());
+
+// Подключение Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Маршруты для авторизации и регистрации
 app.use("/api/auth", authRoutes);

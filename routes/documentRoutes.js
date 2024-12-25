@@ -6,7 +6,47 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// POST: Создание процесса подписания документа
+/**
+ * @swagger
+ * tags:
+ *   - name: Document
+ *     description: Эндпоинты для работы с документами
+ */
+
+/**
+ * @swagger
+ * /api/document/send:
+ *   post:
+ *     tags:
+ *       - Document
+ *     summary: Отправка документа на подписание
+ *     description: Отправляет документ на подписание определённому получателю.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               recipientName:
+ *                 type: string
+ *                 example: "Петров Иван Александрович"
+ *               recipientPhoneNumber:
+ *                 type: string
+ *                 example: "71234567890"
+ *               documentTitle:
+ *                 type: string
+ *                 example: "Договор аренды"
+ *     responses:
+ *       201:
+ *         description: Документ успешно отправлен
+ *       404:
+ *         description: Файл с указанным названием не найден
+ *       403:
+ *         description: У вас нет доступа к этому файлу
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.post("/send", authMiddleware, async (req, res) => {
   try {
     const { recipientName, recipientPhoneNumber, documentTitle } = req.body;
@@ -62,7 +102,33 @@ router.post("/send", authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE: Удаление документов со статусами "Отправлен" или "Отклонён"
+/**
+ * @swagger
+ * /api/document/delete/{documentId}:
+ *   delete:
+ *     tags:
+ *       - Document
+ *     summary: Удаление документа
+ *     description: Удаляет документ со статусами "Отправлен" или "Отклонён".
+ *     parameters:
+ *       - in: path
+ *         name: documentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Идентификатор документа
+ *     responses:
+ *       200:
+ *         description: Документ успешно удалён
+ *       404:
+ *         description: Документ не найден
+ *       400:
+ *         description: Документ нельзя удалить
+ *       403:
+ *         description: У вас нет прав на удаление этого документа
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
   const { documentId } = req.params;
 
@@ -104,7 +170,59 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
   }
 });
 
-// GET: Получение всех отправленных документов с фильтрацией и пагинацией
+/**
+ * @swagger
+ * /api/document/sent-documents:
+ *   get:
+ *     tags:
+ *       - Document
+ *     summary: Получение отправленных документов
+ *     description: Возвращает список отправленных документов с фильтрацией и пагинацией.
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *         description: Начальная дата фильтрации (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *         description: Конечная дата фильтрации (YYYY-MM-DD)
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Отправлен, Отклонён, Подписан]
+ *         description: Статус документа
+ *       - in: query
+ *         name: recipientName
+ *         schema:
+ *           type: string
+ *         description: ФИО подписанта
+ *       - in: query
+ *         name: recipientPhoneNumber
+ *         schema:
+ *           type: string
+ *         description: Номер телефона подписанта
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *         description: Номер страницы
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 10
+ *         description: Количество документов на странице
+ *     responses:
+ *       200:
+ *         description: Список документов с пагинацией
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.get("/sent-documents", authMiddleware, async (req, res) => {
   try {
     const {
@@ -184,7 +302,38 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
   }
 });
 
-// GET: Получение документов для пациента, сгруппированных по клиникам
+/**
+ * @swagger
+ * /api/document/for-patient:
+ *   get:
+ *     tags:
+ *       - Document
+ *     summary: Получение документов для пациента
+ *     description: Возвращает документы для пациента, сгруппированные по клиникам.
+ *     parameters:
+ *       - in: query
+ *         name: clinicName
+ *         schema:
+ *           type: string
+ *         description: Название клиники для фильтрации
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *         description: Номер страницы
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 10
+ *         description: Количество документов на странице
+ *     responses:
+ *       200:
+ *         description: Список документов, сгруппированных по клиникам
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.get("/for-patient", authMiddleware, async (req, res) => {
   try {
     const { clinicName, page = 1, limit = 10 } = req.query;

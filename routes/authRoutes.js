@@ -35,7 +35,61 @@ const generateToken = (user) => {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
-// Регистрация пользователя
+/**
+ * @swagger
+ * tags:
+ *   - name: Auth
+ *     description: Эндпоинты для авторизации и регистрации
+ */
+
+/**
+ * @swagger
+ * /api/auth/register/user:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Регистрация нового пользователя
+ *     description: Создает нового пользователя и возвращает JWT токен.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 example: "Иван"
+ *               lastName:
+ *                 type: string
+ *                 example: "Петров"
+ *               fathersName:
+ *                 type: string
+ *                 example: "Александрович"
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "71234567890"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *     responses:
+ *       201:
+ *         description: Пользователь успешно зарегистрирован
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "User registered successfully"
+ *                 token:
+ *                   type: string
+ *       400:
+ *         description: Пользователь с таким номером телефона уже существует
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.post("/register/user", async (req, res) => {
   const { firstName, lastName, fathersName, phoneNumber, password } = req.body;
 
@@ -81,7 +135,60 @@ router.post("/register/user", async (req, res) => {
   }
 });
 
-// Регистрация клиники
+/**
+ * @swagger
+ * /api/auth/register/clinic:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Регистрация новой клиники
+ *     description: Создает новую клинику и возвращает JWT токен.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               clinicName:
+ *                 type: string
+ *                 example: "Клиника Здоровье"
+ *               firstName:
+ *                 type: string
+ *                 example: "Анна"
+ *               lastName:
+ *                 type: string
+ *                 example: "Иванова"
+ *               fathersName:
+ *                 type: string
+ *                 example: "Сергеевна"
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "79998887766"
+ *               login:
+ *                 type: string
+ *                 example: "clinic_login"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *     responses:
+ *       201:
+ *         description: Клиника успешно зарегистрирована
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Clinic registered successfully"
+ *                 token:
+ *                   type: string
+ *       400:
+ *         description: Клиника с таким логином или номером телефона уже существует
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.post("/register/clinic", async (req, res) => {
   const {
     clinicName,
@@ -140,7 +247,45 @@ router.post("/register/clinic", async (req, res) => {
   }
 });
 
-// Логин для пациентов
+/**
+ * @swagger
+ * /api/auth/login/user:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Авторизация пользователя
+ *     description: Логин пользователя с использованием номера телефона и пароля
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "71234567890"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: Успешная авторизация
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Login successful"
+ *                 token:
+ *                   type: string
+ *       401:
+ *         description: Неверные учетные данные
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.post("/login/user", async (req, res) => {
   const { phoneNumber, password } = req.body;
 
@@ -165,7 +310,45 @@ router.post("/login/user", async (req, res) => {
   }
 });
 
-// Логин для клиник
+/**
+ * @swagger
+ * /api/auth/login/clinic:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Авторизация клиники
+ *     description: Выполняет логин клиники с использованием логина и пароля.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               login:
+ *                 type: string
+ *                 example: "clinic_login"
+ *               password:
+ *                 type: string
+ *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: Успешная авторизация
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Login successful"
+ *                 token:
+ *                   type: string
+ *       401:
+ *         description: Неверные учетные данные
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.post("/login/clinic", async (req, res) => {
   const { login, password } = req.body;
 
@@ -190,7 +373,41 @@ router.post("/login/clinic", async (req, res) => {
   }
 });
 
-// Маршрут для получения данных текущего пользователя
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     tags:
+ *       - Auth
+ *     summary: Получение данных текущего пользователя
+ *     description: Возвращает данные о текущем пользователе или клинике на основе JWT токена.
+ *     responses:
+ *       200:
+ *         description: Успешное получение данных
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 type:
+ *                   type: string
+ *                   example: "user"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     fathersName:
+ *                       type: string
+ *                     phoneNumber:
+ *                       type: string
+ *       400:
+ *         description: Неверный тип пользователя
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.get("/me", authMiddleware, async (req, res) => {
   try {
     const { id, type } = req.user;
@@ -238,7 +455,45 @@ router.get("/me", authMiddleware, async (req, res) => {
   }
 });
 
-// GET: Получение данных о текущей клинике
+/**
+ * @swagger
+ * /api/auth/clinic/me:
+ *   get:
+ *     tags:
+ *       - Auth
+ *     summary: Получение данных текущей клиники
+ *     description: Возвращает данные о текущей клинике на основе JWT токена.
+ *     responses:
+ *       200:
+ *         description: Успешное получение данных
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 clinicName:
+ *                   type: string
+ *                   example: "Клиника Здоровье"
+ *                 responsible:
+ *                   type: object
+ *                   properties:
+ *                     firstName:
+ *                       type: string
+ *                     lastName:
+ *                       type: string
+ *                     fathersName:
+ *                       type: string
+ *                 phoneNumber:
+ *                   type: string
+ *                   example: "79998887766"
+ *                 login:
+ *                   type: string
+ *                   example: "clinic_login"
+ *       403:
+ *         description: Доступ запрещен для пользователей
+ *       500:
+ *         description: Ошибка сервера
+ */
 router.get("/clinic/me", authMiddleware, async (req, res) => {
   try {
     // Проверяем, что это запрос от клиники

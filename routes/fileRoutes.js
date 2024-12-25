@@ -8,6 +8,13 @@ const authMiddleware = require("../middleware/authMiddleware"); // Импорт 
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   - name: Files
+ *     description: Эндпоинты для работы с файлами
+ */
+
 // Указываем директорию для хранения файлов
 const UPLOAD_DIR = path.join(__dirname, "../uploads");
 
@@ -30,7 +37,6 @@ const storage = multer.diskStorage({
   },
 });
 
-// Middleware для обработки multipart/form-data
 const upload = multer({
   storage,
   fileFilter: async (req, file, cb) => {
@@ -55,7 +61,48 @@ const upload = multer({
   },
 });
 
-// 1. Загрузка файла
+/**
+ * @swagger
+ * /api/files/upload:
+ *   post:
+ *     tags:
+ *       - Files
+ *     summary: Загрузка файла
+ *     description: Загружает файл в хранилище и сохраняет данные о нём в базе данных.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *               documentTitle:
+ *                 type: string
+ *                 example: "Название документа"
+ *               isPublic:
+ *                 type: string
+ *                 example: "true"
+ *     responses:
+ *       201:
+ *         description: Файл успешно загружен
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Файл успешно загружен"
+ *                 file:
+ *                   type: object
+ *       400:
+ *         description: Ошибка валидации или файл отсутствует в запросе
+ *       500:
+ *         description: Ошибка при загрузке файла
+ */
 router.post(
   "/upload",
   authMiddleware,
@@ -106,7 +153,29 @@ router.post(
   }
 );
 
-// 2. Отображение файлов
+/**
+ * @swagger
+ * /api/files:
+ *   get:
+ *     tags:
+ *       - Files
+ *     summary: Получение списка файлов
+ *     description: Возвращает список файлов, доступных пользователю.
+ *     responses:
+ *       200:
+ *         description: Список файлов успешно получен
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 files:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       500:
+ *         description: Ошибка при получении файлов
+ */
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const files = await File.find({
@@ -121,7 +190,31 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// 3. Удаление файла
+/**
+ * @swagger
+ * /api/files/{fileId}:
+ *   delete:
+ *     tags:
+ *       - Files
+ *     summary: Удаление файла
+ *     description: Удаляет файл по его ID, если он принадлежит пользователю.
+ *     parameters:
+ *       - name: fileId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID файла для удаления
+ *     responses:
+ *       200:
+ *         description: Файл успешно удалён
+ *       404:
+ *         description: Файл не найден
+ *       403:
+ *         description: У пользователя нет прав на удаление файла
+ *       500:
+ *         description: Ошибка при удалении файла
+ */
 router.delete("/files/:fileId", authMiddleware, async (req, res) => {
   const { fileId } = req.params;
 
