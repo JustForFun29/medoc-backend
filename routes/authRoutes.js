@@ -7,9 +7,32 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// Генерация токена
-const generateToken = (id, type) => {
-  return jwt.sign({ id, type }, process.env.JWT_SECRET, { expiresIn: "7d" });
+/**
+ * Генерация JWT токена с данными пользователя или клиники
+ * @param {Object} user - Объект пользователя или клиники
+ * @param {string} user._id - Идентификатор пользователя или клиники
+ * @param {string} user.type - Тип сущности ("user" или "clinic")
+ * @param {string} user.firstName - Имя
+ * @param {string} user.lastName - Фамилия
+ * @param {string} user.fathersName - Отчество
+ * @param {string} user.phoneNumber - Номер телефона
+ * @param {string} [user.clinicName] - Название клиники (только для клиник)
+ * @returns {string} - Сгенерированный JWT токен
+ */
+const generateToken = (user) => {
+  // Формируем полезную нагрузку токена
+  const payload = {
+    id: user._id,
+    type: user.type, // "user" или "clinic"
+    firstName: user.firstName,
+    lastName: user.lastName,
+    fathersName: user.fathersName,
+    phoneNumber: user.phoneNumber,
+    ...(user.type === "clinic" && { clinicName: user.clinicName }), // Добавляем название клиники только для клиник
+  };
+
+  // Генерируем токен с заданным сроком действия (7 дней)
+  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 // Регистрация пользователя
@@ -39,8 +62,15 @@ router.post("/register/user", async (req, res) => {
 
     await newUser.save();
 
-    // Генерируем токен
-    const token = generateToken(newUser._id, "user");
+    // Генерируем токен, передавая объект пользователя
+    const token = generateToken({
+      _id: newUser._id,
+      type: "user",
+      firstName: newUser.firstName,
+      lastName: newUser.lastName,
+      fathersName: newUser.fathersName,
+      phoneNumber: newUser.phoneNumber,
+    });
 
     res.status(201).json({
       message: "User registered successfully",
@@ -90,8 +120,16 @@ router.post("/register/clinic", async (req, res) => {
 
     await newClinic.save();
 
-    // Генерируем токен
-    const token = generateToken(newClinic._id, "clinic");
+    // Генерируем токен, передавая объект клиники
+    const token = generateToken({
+      _id: newClinic._id,
+      type: "clinic",
+      clinicName: newClinic.clinicName,
+      firstName: newClinic.firstName,
+      lastName: newClinic.lastName,
+      fathersName: newClinic.fathersName,
+      phoneNumber: newClinic.phoneNumber,
+    });
 
     res.status(201).json({
       message: "Clinic registered successfully",
@@ -117,7 +155,10 @@ router.post("/login/user", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = generateToken(user._id, "user");
+    // Добавляем type "user" к объекту перед генерацией токена
+    user.type = "user";
+
+    const token = generateToken(user);
     res.status(200).json({ message: "Login successful", token });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -139,7 +180,10 @@ router.post("/login/clinic", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = generateToken(clinic._id, "clinic");
+    // Добавляем type "clinic" к объекту перед генерацией токена
+    clinic.type = "clinic";
+
+    const token = generateToken(clinic);
     res.status(200).json({ message: "Login successful", token });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });

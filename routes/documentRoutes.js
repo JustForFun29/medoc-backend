@@ -73,7 +73,7 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Документ не найден" });
     }
 
-    if (!["Отправлен", "Отклонён"].includes(document.status)) {
+    if (!["Отправлен", "Отклонен"].includes(document.status)) {
       return res
         .status(400)
         .json({ message: "Документ нельзя удалить, так как он уже подписан" });
@@ -91,7 +91,8 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
         .json({ message: "У вас нет прав на удаление этого документа" });
     }
 
-    await document.remove();
+    // Используем deleteOne вместо remove
+    await Document.deleteOne({ _id: documentId });
 
     res.status(200).json({ message: "Документ успешно удалён" });
   } catch (error) {
