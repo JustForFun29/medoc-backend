@@ -4,21 +4,327 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Clinic = require("../models/Clinic");
 const authMiddleware = require("../middleware/authMiddleware");
+const nodemailer = require("nodemailer");
 
 const router = express.Router();
 
+// Настройка nodemailer
+const transporter = nodemailer.createTransport({
+  host: "smtp.yandex.ru",
+  port: 465,
+  secure: true, // Используется SSL
+  auth: {
+    user: process.env.EMAIL_USER, // Логин от Яндекс.Почты
+    pass: process.env.EMAIL_PASS, // Пароль от Яндекс.Почты
+  },
+});
+
+// Генерация токена для сброса пароля
+const generateResetToken = (id, type) =>
+  jwt.sign({ id, type }, process.env.JWT_SECRET, { expiresIn: "24h" });
+
 /**
- * Генерация JWT токена с данными пользователя или клиники
- * @param {Object} user - Объект пользователя или клиники
- * @param {string} user._id - Идентификатор пользователя или клиники
- * @param {string} user.type - Тип сущности ("user" или "clinic")
- * @param {string} user.firstName - Имя
- * @param {string} user.lastName - Фамилия
- * @param {string} user.fathersName - Отчество
- * @param {string} user.phoneNumber - Номер телефона
- * @param {string} [user.clinicName] - Название клиники (только для клиник)
- * @returns {string} - Сгенерированный JWT токен
+ * @swagger
+ * tags:
+ *   - name: Auth
+ *     description: Эндпоинты для авторизации и регистрации
  */
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Запрос сброса пароля - шаг 1
+ *     description: Отправляет письмо с уникальной ссылкой для сброса пароля.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: "user@example.com"
+ *     responses:
+ *       200:
+ *         description: Письмо для сброса пароля успешно отправлено.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset email sent"
+ *       400:
+ *         description: Email отсутствует в запросе.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Email is required"
+ *       404:
+ *         description: Пользователь или клиника не найдены.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "User or clinic not found"
+ *       500:
+ *         description: Ошибка сервера при отправке письма.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to send reset email"
+ */
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user =
+      (await User.findOne({ email })) || (await Clinic.findOne({ email }));
+
+    if (!user) {
+      return res.status(404).json({ message: "User or clinic not found" });
+    }
+
+    // Генерация токена
+    const resetToken = generateResetToken(
+      user._id,
+      user instanceof User ? "user" : "clinic"
+    );
+
+    // Формирование ссылки в стиле Zapier
+    const resetLink = `${process.env.FRONTEND_URL}/api/auth/validate-reset-token?email=${email}&token=${resetToken}`;
+
+    // Отправка email
+    await transporter.sendMail({
+      from: `"Medoc Support" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Medoc: Запрос на смену пароля",
+      text: `Здравствуйте ,${user.firstName} ${user.fathersName}!\nМы получили запрос на смену вашего пароля в системе Medoc.\nДля смены пароля перейдите по этой ссылке: ${resetLink}\nДанная ссылка будет доступна в течении 24 часов.\n\nС уважением,\nкоманда Medoc`,
+      html: `<p>Здравствуйте ,${user.firstName} ${user.fathersName}!\nМы получили запрос на смену вашего пароля в системе Medoc.\nДля смены пароля перейдите по этой <a href="${resetLink}">ссылке</a>\nДанная ссылка будет доступна в течении 24 часов.\n\nС уважением,\nкоманда Medoc</p>`,
+    });
+
+    res.status(200).json({ message: "Password reset email sent" });
+  } catch (error) {
+    console.error("Error sending reset email:", error);
+    res.status(500).json({ message: "Failed to send reset email" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/validate-reset-token:
+ *   get:
+ *     tags:
+ *       - Auth
+ *     summary: Проверка токена сброса пароля - шаг 2
+ *     description: Проверяет валидность токена сброса пароля и его связь с пользователем или клиникой.
+ *     parameters:
+ *       - name: email
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "user@example.com"
+ *         description: Email, связанный с учетной записью.
+ *       - name: token
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *         description: Токен, отправленный в письме для сброса пароля.
+ *     responses:
+ *       200:
+ *         description: Токен действителен.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Token is valid"
+ *       400:
+ *         description: Токен истек.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Reset token expired"
+ *       404:
+ *         description: Неверный токен или пользователь не найден.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid token or user not found"
+ *       500:
+ *         description: Ошибка сервера при проверке токена.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to validate token"
+ */
+router.get("/validate-reset-token", async (req, res) => {
+  const { email, token } = req.query;
+
+  try {
+    const { id, type } = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Найти пользователя или клинику
+    const user =
+      type === "user"
+        ? await User.findOne({ email })
+        : await Clinic.findOne({ email });
+
+    if (!user || user._id.toString() !== id) {
+      return res
+        .status(404)
+        .json({ message: "Invalid token or user not found" });
+    }
+
+    res.status(200).json({ message: "Token is valid" });
+  } catch (error) {
+    console.error("Error validating token:", error);
+    if (error.name === "TokenExpiredError") {
+      res.status(400).json({ message: "Reset token expired" });
+    } else {
+      res.status(500).json({ message: "Failed to validate token" });
+    }
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Сброс пароля - шаг 3
+ *     description: Сбрасывает пароль пользователя или клиники с использованием токена, email и нового пароля.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: "user@example.com"
+ *               token:
+ *                 type: string
+ *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *               newPassword:
+ *                 type: string
+ *                 example: "NewSecurePassword123"
+ *     responses:
+ *       200:
+ *         description: Пароль успешно сброшен.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully"
+ *       400:
+ *         description: Токен истек.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Reset token expired"
+ *       404:
+ *         description: Неверный токен или пользователь не найден.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid token or user not found"
+ *       500:
+ *         description: Ошибка сервера при сбросе пароля.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Failed to reset password"
+ */
+router.post("/reset-password", async (req, res) => {
+  const { email, token, newPassword } = req.body;
+
+  try {
+    const { id, type } = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Найти пользователя или клинику
+    const user =
+      type === "user"
+        ? await User.findOne({ email })
+        : await Clinic.findOne({ email });
+
+    if (!user || user._id.toString() !== id) {
+      return res
+        .status(404)
+        .json({ message: "Invalid token or user not found" });
+    }
+
+    // Обновление пароля
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.hashedPassword = hashedPassword;
+    await user.save();
+
+    res.status(200).json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    if (error.name === "TokenExpiredError") {
+      res.status(400).json({ message: "Reset token expired" });
+    } else {
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  }
+});
+
+//  Генерация JWT токена с данными пользователя или клиники
 const generateToken = (user, type) => {
   const payload = {
     id: user._id,
@@ -33,13 +339,6 @@ const generateToken = (user, type) => {
 
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
-
-/**
- * @swagger
- * tags:
- *   - name: Auth
- *     description: Эндпоинты для авторизации и регистрации
- */
 
 /**
  * @swagger
