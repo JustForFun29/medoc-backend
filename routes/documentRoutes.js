@@ -53,12 +53,38 @@ const s3Client = new S3Client({
  *     responses:
  *       201:
  *         description: Документ успешно отправлен
- *       404:
- *         description: Файл с указанным названием не найден
- *       403:
- *         description: У вас нет доступа к этому файлу
- *       500:
- *         description: Ошибка сервера
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Процесс подписания успешно начат"
+ *                 document:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     documentTitle:
+ *                       type: string
+ *                       example: "Договор аренды"
+ *                     recipient:
+ *                       type: object
+ *                     sender:
+ *                       type: object
+ *                     fileUrl:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *     404:
+ *       description: Файл с указанным названием не найден
+ *     403:
+ *       description: У вас нет доступа к этому файлу
+ *     500:
+ *       description: Ошибка сервера
  */
 router.post("/send", authMiddleware, async (req, res) => {
   try {
@@ -85,6 +111,7 @@ router.post("/send", authMiddleware, async (req, res) => {
     const newDocument = new Document({
       title: documentTitle,
       fileUrl: file.filePath,
+      documentTitle,
       recipient: { name: recipientName, phoneNumber: recipientPhoneNumber },
       sender: {
         clinicName: clinic.clinicName,
@@ -99,6 +126,7 @@ router.post("/send", authMiddleware, async (req, res) => {
       message: "Процесс подписания успешно начат",
       document: {
         id: newDocument._id,
+        documentTitle: newDocument.documentTitle,
         recipient: newDocument.recipient,
         sender: newDocument.sender,
         fileUrl: newDocument.fileUrl,
@@ -133,6 +161,20 @@ router.post("/send", authMiddleware, async (req, res) => {
  *     responses:
  *       200:
  *         description: Документ успешно удалён
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Документ успешно удалён"
+ *                 documentTitle:
+ *                   type: string
+ *                   example: "Договор аренды"
+ *                 dateSigned:
+ *                   type: string
+ *                   format: date-time
  *       404:
  *         description: Документ не найден
  *       400:
@@ -152,7 +194,7 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Документ не найден" });
     }
 
-    if (!["Отправлен", "Отклонен"].includes(document.status)) {
+    if (!["Отправлен", "Отклонён"].includes(document.status)) {
       return res
         .status(400)
         .json({ message: "Документ нельзя удалить, так как он уже подписан" });
@@ -170,10 +212,13 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
         .json({ message: "У вас нет прав на удаление этого документа" });
     }
 
-    // Используем deleteOne вместо remove
     await Document.deleteOne({ _id: documentId });
 
-    res.status(200).json({ message: "Документ успешно удалён" });
+    res.status(200).json({
+      message: "Документ успешно удалён",
+      documentTitle: document.documentTitle, // Добавлено поле
+      dateSigned: document.dateSigned || null, // Добавлено поле
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -233,6 +278,45 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
  *     responses:
  *       200:
  *         description: Список документов с пагинацией
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 documents:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       documentTitle:
+ *                         type: string
+ *                         example: "Договор аренды"
+ *                       dateSigned:
+ *                         type: string
+ *                         format: date-time
+ *                       recipient:
+ *                         type: object
+ *                       sender:
+ *                         type: object
+ *                       fileUrl:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     page:
+ *                       type: integer
+ *                     limit:
+ *                       type: integer
+ *                     totalPages:
+ *                       type: integer
  *       500:
  *         description: Ошибка сервера
  */
@@ -293,7 +377,9 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
-      .select("recipient sender fileUrl status createdAt");
+      .select(
+        "recipient sender fileUrl status createdAt documentTitle dateSigned"
+      ); // Добавлено
 
     const totalDocuments = await Document.countDocuments(filters);
 
@@ -401,7 +487,7 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
  * /api/documents/{documentId}:
  *   get:
  *     tags:
- *       - Documents
+ *       - Document
  *     summary: Получение содержимого файла документа
  *     description: Возвращает файл документа из хранилища объектов и его описание из базы данных.
  *     parameters:
@@ -421,6 +507,24 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
  *               properties:
  *                 document:
  *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     title:
+ *                       type: string
+ *                     recipient:
+ *                       type: object
+ *                     sender:
+ *                       type: object
+ *                     status:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                     documentTitle:
+ *                       type: string
+ *                     dateSigned:
+ *                       type: string
+ *                       format: date-time
  *                 fileContent:
  *                   type: string
  *                   format: binary
