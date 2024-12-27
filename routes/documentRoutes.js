@@ -3,8 +3,21 @@ const Document = require("../models/Document");
 const File = require("../models/File");
 const Clinic = require("../models/Clinic");
 const authMiddleware = require("../middleware/authMiddleware");
+const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
 
+const { Readable } = require("stream");
 const router = express.Router();
+
+// Настройка S3 клиента
+const s3Client = new S3Client({
+  region: "ru-central-1",
+  endpoint: "https://s3.cloud.ru",
+  credentials: {
+    accessKeyId: process.env.CLOUD_ACCESS_KEY_ID,
+    secretAccessKey: process.env.CLOUD_SECRET_ACCESS_KEY,
+  },
+  forcePathStyle: true,
+});
 
 /**
  * @swagger
@@ -382,5 +395,94 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
     });
   }
 });
+
+/**
+ * @swagger
+ * /api/documents/{documentId}:
+ *   get:
+ *     tags:
+ *       - Documents
+ *     summary: Получение содержимого файла документа
+ *     description: Возвращает файл документа из хранилища объектов и его описание из базы данных.
+ *     parameters:
+ *       - name: documentId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID документа
+ *     responses:
+ *       200:
+ *         description: Файл и описание документа успешно получены
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 document:
+ *                   type: object
+ *                 fileContent:
+ *                   type: string
+ *                   format: binary
+ *       404:
+ *         description: Документ или файл не найден
+ *       500:
+ *         description: Ошибка при получении файла
+ */
+router.get("/:documentId", authMiddleware, async (req, res) => {
+  const { documentId } = req.params;
+
+  try {
+    // Извлекаем данные документа
+    const document = await Document.findById(documentId);
+    if (!document) {
+      return res.status(404).json({ message: "Документ не найден" });
+    }
+
+    // Получаем связанный файл из базы данных
+    const file = await File.findOne({ filePath: document.fileUrl });
+    if (!file) {
+      return res.status(404).json({ message: "Файл для документа не найден" });
+    }
+
+    const fileKey = file.filePath.split(`${process.env.CLOUD_BUCKET_NAME}/`)[1]; // Извлекаем ключ объекта
+
+    // Загружаем файл из S3
+    const getParams = {
+      Bucket: process.env.CLOUD_BUCKET_NAME,
+      Key: fileKey,
+    };
+
+    const fileData = await s3Client.send(new GetObjectCommand(getParams));
+
+    // Читаем поток данных файла
+    const fileContent = await streamToBuffer(fileData.Body);
+
+    // Возвращаем данные о документе и файл
+    res.status(200).json({
+      document: {
+        id: document._id,
+        title: document.title,
+        recipient: document.recipient,
+        sender: document.sender,
+        status: document.status,
+        createdAt: document.createdAt,
+      },
+      fileContent: fileContent.toString("base64"), // Конвертируем содержимое файла в Base64
+    });
+  } catch (error) {
+    console.error("Ошибка при получении файла документа:", error);
+    res.status(500).json({ message: "Ошибка при получении файла" });
+  }
+});
+
+// Утилита для преобразования потока (Readable) в буфер
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
 
 module.exports = router;
