@@ -15,7 +15,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/document/send:
+ * /api/documents/send:
  *   post:
  *     tags:
  *       - Document
@@ -104,7 +104,7 @@ router.post("/send", authMiddleware, async (req, res) => {
 
 /**
  * @swagger
- * /api/document/delete/{documentId}:
+ * /api/documents/delete/{documentId}:
  *   delete:
  *     tags:
  *       - Document
@@ -172,7 +172,7 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
 
 /**
  * @swagger
- * /api/document/sent-documents:
+ * /api/documents/sent-documents:
  *   get:
  *     tags:
  *       - Document
@@ -304,7 +304,7 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
 
 /**
  * @swagger
- * /api/document/for-patient:
+ * /api/documents/for-patient:
  *   get:
  *     tags:
  *       - Document
