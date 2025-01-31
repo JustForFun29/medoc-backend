@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const phoneValidator = /^7\d{10}$/;
+const phoneValidator = /^7\d{11}$/;
 const emailValidator = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ClinicSchema = new mongoose.Schema(

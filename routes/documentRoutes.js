@@ -350,11 +350,17 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
     }
 
     if (status) {
-      const validStatuses = ["Отправлен", "Отклонён", "Подписан"];
-      if (validStatuses.includes(status)) {
-        filters.status = status;
-      } else {
-        return res.status(400).json({ message: "Недопустимый статус" });
+      const statusMapping = {
+        docSent: "Отправлен",
+        docRejected: "Отклонён",
+        docSigned: "Подписан",
+      };
+
+      let statusArray = Array.isArray(status) ? status : [status];
+      statusArray = statusArray.map((s) => statusMapping[s]).filter(Boolean);
+
+      if (statusArray.length) {
+        filters.status = { $in: statusArray };
       }
     }
 
@@ -379,7 +385,7 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
       .limit(pageSize)
       .select(
         "recipient sender fileUrl status createdAt documentTitle dateSigned"
-      ); // Добавлено
+      );
 
     const totalDocuments = await Document.countDocuments(filters);
 
