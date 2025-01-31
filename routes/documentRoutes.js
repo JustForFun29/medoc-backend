@@ -383,9 +383,7 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
-      .select(
-        "recipient sender fileUrl status createdAt documentTitle dateSigned"
-      );
+      .select("title recipient sender fileUrl status createdAt dateSigned");
 
     const totalDocuments = await Document.countDocuments(filters);
 
