@@ -674,7 +674,7 @@ router.get("/contractors", authMiddleware, async (req, res) => {
     }
 
     // Общее количество элементов перед пагинацией
-    const totalItems = contractorsArray.length;
+    const total = contractorsArray.length;
 
     // Пагинация
     const paginatedContractors = contractorsArray.slice(skip, skip + pageSize);
@@ -682,10 +682,10 @@ router.get("/contractors", authMiddleware, async (req, res) => {
     res.status(200).json({
       contractors: paginatedContractors,
       pagination: {
-        totalItems,
+        total,
         page: pageNumber,
         limit: pageSize,
-        totalPages: Math.ceil(totalItems / pageSize),
+        totalPages: Math.ceil(total / pageSize),
       },
     });
   } catch (error) {
