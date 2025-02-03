@@ -532,6 +532,7 @@ router.get("/contractors", authMiddleware, async (req, res) => {
       recipientPhoneNumber,
       consentToEDO,
     } = req.query;
+
     const pageSize = parseInt(limit, 10);
     const pageNumber = parseInt(page, 10);
     const skip = (pageNumber - 1) * pageSize;
@@ -545,13 +546,13 @@ router.get("/contractors", authMiddleware, async (req, res) => {
       return res.status(403).json({ message: "Клиника не авторизована" });
     }
 
-    // Фильтры
+    // Основные фильтры
     const filters = {
-      "sender.phoneNumber": clinic.phoneNumber,
+      "sender.phoneNumber": clinic.phoneNumber, // Ограничиваем поиск по клинике
     };
 
     if (recipientName) {
-      filters["recipient.name"] = { $regex: new RegExp(recipientName, "i") }; // Нечувствительно к регистру
+      filters["recipient.name"] = { $regex: new RegExp(recipientName, "i") };
     }
 
     if (recipientPhoneNumber) {
@@ -560,41 +561,59 @@ router.get("/contractors", authMiddleware, async (req, res) => {
       };
     }
 
-    if (consentToEDO === "true") {
-      filters["consentToEDO"] = true;
-    } else if (consentToEDO === "false") {
-      filters["consentToEDO"] = { $ne: true }; // Фильтруем если согласие не подписано
-    }
-
-    // Получаем все уникальные номера подписантов (чтобы не было дубликатов)
+    // Получаем все уникальные документы, отправленные данной клиникой
     const documents = await Document.find(filters)
       .select("recipient.name recipient.phoneNumber status title")
       .sort({ createdAt: -1 });
 
-    // Группируем подписантов
+    // Используем Map для группировки подписантов
     const contractorsMap = new Map();
 
     documents.forEach((doc) => {
       const phone = doc.recipient.phoneNumber;
+
       if (!contractorsMap.has(phone)) {
         contractorsMap.set(phone, {
-          recipientName: doc.recipient.name, // Изменено
-          recipientPhoneNumber: phone, // Изменено
+          recipientName: doc.recipient.name,
+          recipientPhoneNumber: phone,
           signedDocumentsCount: 0,
           consentToEDO: false,
         });
       }
+
+      // Учитываем все подписанные документы
       if (doc.status === "Подписан") {
         contractorsMap.get(phone).signedDocumentsCount += 1;
       }
-      if (doc.title === "Согласие на ЭДО" && doc.status === "Подписан") {
+
+      // Проверяем согласие на ЭДО
+      if (
+        (doc.title === "Согласие на ЭДО" ||
+          doc.documentTitle === "Согласие на ЭДО") &&
+        doc.status === "Подписан"
+      ) {
         contractorsMap.get(phone).consentToEDO = true;
       }
     });
 
-    // Преобразуем в массив и применяем пагинацию
-    const contractorsArray = Array.from(contractorsMap.values());
+    // Преобразуем в массив
+    let contractorsArray = Array.from(contractorsMap.values());
+
+    // Фильтрация по `consentToEDO`
+    if (consentToEDO === "true") {
+      contractorsArray = contractorsArray.filter(
+        (c) => c.consentToEDO === true
+      );
+    } else if (consentToEDO === "false") {
+      contractorsArray = contractorsArray.filter(
+        (c) => c.consentToEDO === false
+      );
+    }
+
+    // Общее количество элементов перед пагинацией
     const totalItems = contractorsArray.length;
+
+    // Пагинация
     const paginatedContractors = contractorsArray.slice(skip, skip + pageSize);
 
     res.status(200).json({
