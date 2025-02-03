@@ -505,32 +505,35 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
  *         schema:
  *           type: integer
  *           example: 1
- *         description: Номер страницы (по умолчанию 1)
+ *         description: Номер страницы (по умолчанию 1).
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           enum: [10, 20, 30, 40, 50]
  *           example: 10
- *         description: Количество элементов на странице (доступные значения: 10, 20, 30, 40, 50)
+ *         description: |
+ *           Количество элементов на странице.
+ *           Доступные значения: 10, 20, 30, 40, 50.
  *       - in: query
  *         name: recipientName
  *         schema:
  *           type: string
- *         description: Фильтр по ФИО подписанта (поддерживает поиск по частичному совпадению)
+ *         description: Фильтр по ФИО подписанта (поддерживает частичное совпадение).
  *       - in: query
  *         name: recipientPhoneNumber
  *         schema:
  *           type: string
- *         description: Фильтр по номеру телефона подписанта (поддерживает поиск по частичному совпадению)
+ *         description: Фильтр по номеру телефона подписанта (поддерживает частичное совпадение).
  *       - in: query
  *         name: consentToEDO
  *         schema:
  *           type: string
  *           enum: [true, false]
  *         description: |
- *           Фильтр по согласию на ЭДО. Если `true`, показываются только подписавшие "Согласие на ЭДО".
- *           Если `false`, показываются подписанты без согласия на ЭДО.
+ *           Фильтр по согласию на ЭДО.
+ *           - `true` — показываются только подписавшие "Согласие на ЭДО".
+ *           - `false` — показываются подписанты без согласия на ЭДО.
  *     responses:
  *       200:
  *         description: Успешный ответ со списком контрагентов.
@@ -547,38 +550,38 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
  *                       recipientName:
  *                         type: string
  *                         example: "Иванов Петр Сергеевич"
- *                         description: Полное имя подписанта
+ *                         description: Полное имя подписанта.
  *                       recipientPhoneNumber:
  *                         type: string
  *                         example: "79998887766"
- *                         description: Номер телефона подписанта
+ *                         description: Номер телефона подписанта.
  *                       signedDocumentsCount:
  *                         type: integer
  *                         example: 2
- *                         description: Количество подписанных документов
+ *                         description: Количество подписанных документов.
  *                       consentToEDO:
  *                         type: boolean
  *                         example: true
- *                         description: Подписал ли контрагент "Согласие на ЭДО"
+ *                         description: Подписал ли контрагент "Согласие на ЭДО".
  *                 pagination:
  *                   type: object
  *                   properties:
  *                     totalItems:
  *                       type: integer
  *                       example: 50
- *                       description: Общее количество контрагентов
+ *                       description: Общее количество контрагентов.
  *                     page:
  *                       type: integer
  *                       example: 1
- *                       description: Текущая страница
+ *                       description: Текущая страница.
  *                     limit:
  *                       type: integer
  *                       example: 10
- *                       description: Количество элементов на странице
+ *                       description: Количество элементов на странице.
  *                     totalPages:
  *                       type: integer
  *                       example: 5
- *                       description: Общее количество страниц
+ *                       description: Общее количество страниц.
  *       400:
  *         description: Некорректные параметры запроса.
  *       403:
