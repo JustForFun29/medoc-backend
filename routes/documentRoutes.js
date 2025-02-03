@@ -488,7 +488,7 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
 
 /**
  * @swagger
- * /api/documents/contacts:
+ * /api/documents/contractors:
  *   get:
  *     tags:
  *       - Document
@@ -568,7 +568,7 @@ router.get("/contractors", authMiddleware, async (req, res) => {
 
     // Получаем все уникальные номера подписантов (чтобы не было дубликатов)
     const documents = await Document.find(filters)
-      .select("recipient.name recipient.phoneNumber status documentTitle")
+      .select("recipient.name recipient.phoneNumber status title")
       .sort({ createdAt: -1 });
 
     // Группируем подписантов
@@ -587,10 +587,7 @@ router.get("/contractors", authMiddleware, async (req, res) => {
       if (doc.status === "Подписан") {
         contractorsMap.get(phone).signedDocumentsCount += 1;
       }
-      if (
-        doc.documentTitle === "Согласие на ЭДО" &&
-        doc.status === "Подписан"
-      ) {
+      if (doc.title === "Согласие на ЭДО" && doc.status === "Подписан") {
         contractorsMap.get(phone).consentToEDO = true;
       }
     });
