@@ -488,6 +488,135 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
 
 /**
  * @swagger
+ * /api/documents/contacts:
+ *   get:
+ *     tags:
+ *       - Document
+ *     summary: Получение списка контрагентов
+ *     description: Возвращает список всех подписавших документы контрагентов (ФИО, номер телефона, количество подписанных документов и статус подписания ИДС).
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Успешное получение списка контрагентов
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                     example: "Иванов Иван Иванович"
+ *                   phoneNumber:
+ *                     type: string
+ *                     example: "71234567890"
+ *                   signedDocumentsCount:
+ *                     type: integer
+ *                     example: 5
+ *                   consentToEDO:
+ *                     type: boolean
+ *                     example: true
+ *       403:
+ *         description: Доступ запрещен
+ *       500:
+ *         description: Ошибка сервера
+ */
+router.get("/contractors", authMiddleware, async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      recipientName,
+      recipientPhoneNumber,
+      consentToEDO,
+    } = req.query;
+    const pageSize = parseInt(limit, 10);
+    const pageNumber = parseInt(page, 10);
+    const skip = (pageNumber - 1) * pageSize;
+
+    if (![10, 20, 30, 40, 50].includes(pageSize)) {
+      return res.status(400).json({ message: "Некорректное значение limit" });
+    }
+
+    const clinic = await Clinic.findById(req.user.id);
+    if (!clinic) {
+      return res.status(403).json({ message: "Клиника не авторизована" });
+    }
+
+    // Фильтры
+    const filters = {
+      "sender.phoneNumber": clinic.phoneNumber,
+    };
+
+    if (recipientName) {
+      filters["recipient.name"] = { $regex: new RegExp(recipientName, "i") }; // Нечувствительно к регистру
+    }
+
+    if (recipientPhoneNumber) {
+      filters["recipient.phoneNumber"] = {
+        $regex: new RegExp(recipientPhoneNumber, "i"),
+      };
+    }
+
+    if (consentToEDO === "true") {
+      filters["consentToEDO"] = true;
+    } else if (consentToEDO === "false") {
+      filters["consentToEDO"] = { $ne: true }; // Фильтруем если согласие не подписано
+    }
+
+    // Получаем все уникальные номера подписантов (чтобы не было дубликатов)
+    const documents = await Document.find(filters)
+      .select("recipient.name recipient.phoneNumber status documentTitle")
+      .sort({ createdAt: -1 });
+
+    // Группируем подписантов
+    const contractorsMap = new Map();
+
+    documents.forEach((doc) => {
+      const phone = doc.recipient.phoneNumber;
+      if (!contractorsMap.has(phone)) {
+        contractorsMap.set(phone, {
+          recipientName: doc.recipient.name, // Изменено
+          recipientPhoneNumber: phone, // Изменено
+          signedDocumentsCount: 0,
+          consentToEDO: false,
+        });
+      }
+      if (doc.status === "Подписан") {
+        contractorsMap.get(phone).signedDocumentsCount += 1;
+      }
+      if (
+        doc.documentTitle === "Согласие на ЭДО" &&
+        doc.status === "Подписан"
+      ) {
+        contractorsMap.get(phone).consentToEDO = true;
+      }
+    });
+
+    // Преобразуем в массив и применяем пагинацию
+    const contractorsArray = Array.from(contractorsMap.values());
+    const totalItems = contractorsArray.length;
+    const paginatedContractors = contractorsArray.slice(skip, skip + pageSize);
+
+    res.status(200).json({
+      contractors: paginatedContractors,
+      pagination: {
+        totalItems,
+        page: pageNumber,
+        limit: pageSize,
+        totalPages: Math.ceil(totalItems / pageSize),
+      },
+    });
+  } catch (error) {
+    console.error("Ошибка при получении контрагентов:", error);
+    res.status(500).json({ message: "Ошибка при получении контрагентов" });
+  }
+});
+
+/**
+ * @swagger
  * /api/documents/{documentId}:
  *   get:
  *     tags:
