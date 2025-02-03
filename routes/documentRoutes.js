@@ -492,37 +492,101 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
  *   get:
  *     tags:
  *       - Document
- *     summary: Получение списка контрагентов
- *     description: Возвращает список всех подписавших документы контрагентов (ФИО, номер телефона, количество подписанных документов и статус подписания ИДС).
+ *     summary: Получение списка контрагентов (подписантов)
+ *     description: |
+ *       Возвращает список контрагентов, которым клиника отправляла документы.
+ *       Контрагенты включают как подписавших документы, так и тех, кому они были отправлены.
+ *       Также есть возможность фильтровать по согласию на электронный документооборот (ЭДО).
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *         description: Номер страницы (по умолчанию 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 20, 30, 40, 50]
+ *           example: 10
+ *         description: Количество элементов на странице (доступные значения: 10, 20, 30, 40, 50)
+ *       - in: query
+ *         name: recipientName
+ *         schema:
+ *           type: string
+ *         description: Фильтр по ФИО подписанта (поддерживает поиск по частичному совпадению)
+ *       - in: query
+ *         name: recipientPhoneNumber
+ *         schema:
+ *           type: string
+ *         description: Фильтр по номеру телефона подписанта (поддерживает поиск по частичному совпадению)
+ *       - in: query
+ *         name: consentToEDO
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *         description: |
+ *           Фильтр по согласию на ЭДО. Если `true`, показываются только подписавшие "Согласие на ЭДО".
+ *           Если `false`, показываются подписанты без согласия на ЭДО.
  *     responses:
  *       200:
- *         description: Успешное получение списка контрагентов
+ *         description: Успешный ответ со списком контрагентов.
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   name:
- *                     type: string
- *                     example: "Иванов Иван Иванович"
- *                   phoneNumber:
- *                     type: string
- *                     example: "71234567890"
- *                   signedDocumentsCount:
- *                     type: integer
- *                     example: 5
- *                   consentToEDO:
- *                     type: boolean
- *                     example: true
+ *               type: object
+ *               properties:
+ *                 contractors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       recipientName:
+ *                         type: string
+ *                         example: "Иванов Петр Сергеевич"
+ *                         description: Полное имя подписанта
+ *                       recipientPhoneNumber:
+ *                         type: string
+ *                         example: "79998887766"
+ *                         description: Номер телефона подписанта
+ *                       signedDocumentsCount:
+ *                         type: integer
+ *                         example: 2
+ *                         description: Количество подписанных документов
+ *                       consentToEDO:
+ *                         type: boolean
+ *                         example: true
+ *                         description: Подписал ли контрагент "Согласие на ЭДО"
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     totalItems:
+ *                       type: integer
+ *                       example: 50
+ *                       description: Общее количество контрагентов
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                       description: Текущая страница
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                       description: Количество элементов на странице
+ *                     totalPages:
+ *                       type: integer
+ *                       example: 5
+ *                       description: Общее количество страниц
+ *       400:
+ *         description: Некорректные параметры запроса.
  *       403:
- *         description: Доступ запрещен
+ *         description: Клиника не авторизована.
  *       500:
- *         description: Ошибка сервера
+ *         description: Ошибка сервера при получении данных.
  */
+
 router.get("/contractors", authMiddleware, async (req, res) => {
   try {
     const {
@@ -587,11 +651,7 @@ router.get("/contractors", authMiddleware, async (req, res) => {
       }
 
       // Проверяем согласие на ЭДО
-      if (
-        (doc.title === "Согласие на ЭДО" ||
-          doc.documentTitle === "Согласие на ЭДО") &&
-        doc.status === "Подписан"
-      ) {
+      if (doc.title === "Согласие на ЭДО" && doc.status === "Подписан") {
         contractorsMap.get(phone).consentToEDO = true;
       }
     });
