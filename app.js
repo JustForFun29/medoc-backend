@@ -9,7 +9,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const fileRoutes = require("./routes/fileRoutes");
-const swaggerDocs = require("./config/swaggerConfig"); // Импорт Swagger конфигурации
+const swaggerDocs = require("./config/swaggerDocs.json");
 const swaggerUi = require("swagger-ui-express"); // Добавьте это в начале файла
 
 // Подключение к MongoDB

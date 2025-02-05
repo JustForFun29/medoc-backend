@@ -19,73 +19,7 @@ const s3Client = new S3Client({
   forcePathStyle: true,
 });
 
-/**
- * @swagger
- * tags:
- *   - name: Document
- *     description: Эндпоинты для работы с документами
- */
-
-/**
- * @swagger
- * /api/documents/send:
- *   post:
- *     tags:
- *       - Document
- *     summary: Отправка документа на подписание
- *     description: Отправляет документ на подписание определённому получателю.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               recipientName:
- *                 type: string
- *                 example: "Петров Иван Александрович"
- *               recipientPhoneNumber:
- *                 type: string
- *                 example: "71234567890"
- *               documentTitle:
- *                 type: string
- *                 example: "Договор аренды"
- *     responses:
- *       201:
- *         description: Документ успешно отправлен
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Процесс подписания успешно начат"
- *                 document:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     documentTitle:
- *                       type: string
- *                       example: "Договор аренды"
- *                     recipient:
- *                       type: object
- *                     sender:
- *                       type: object
- *                     fileUrl:
- *                       type: string
- *                     status:
- *                       type: string
- *                     createdAt:
- *                       type: string
- *     404:
- *       description: Файл с указанным названием не найден
- *     403:
- *       description: У вас нет доступа к этому файлу
- *     500:
- *       description: Ошибка сервера
- */
+// Отправка документа на подписание, используя загруженные шаблоны для авторизованной клиники
 router.post("/send", authMiddleware, async (req, res) => {
   try {
     const { recipientName, recipientPhoneNumber, documentTitle } = req.body;
@@ -143,47 +77,80 @@ router.post("/send", authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/documents/delete/{documentId}:
- *   delete:
- *     tags:
- *       - Document
- *     summary: Удаление документа
- *     description: Удаляет документ со статусами "Отправлен" или "Отклонён".
- *     parameters:
- *       - in: path
- *         name: documentId
- *         required: true
- *         schema:
- *           type: string
- *         description: Идентификатор документа
- *     responses:
- *       200:
- *         description: Документ успешно удалён
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Документ успешно удалён"
- *                 documentTitle:
- *                   type: string
- *                   example: "Договор аренды"
- *                 dateSigned:
- *                   type: string
- *                   format: date-time
- *       404:
- *         description: Документ не найден
- *       400:
- *         description: Документ нельзя удалить
- *       403:
- *         description: У вас нет прав на удаление этого документа
- *       500:
- *         description: Ошибка сервера
- */
+// Отправка документа с новым файлом для подписания
+router.post(
+  "/upload-and-send",
+  authMiddleware,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const { documentTitle, recipientName, recipientPhoneNumber } = req.body;
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Файл отсутствует в запросе" });
+      }
+
+      const clinic = req.user;
+      if (!clinic) {
+        return res.status(403).json({ message: "Клиника не авторизована" });
+      }
+
+      // Генерируем уникальное имя файла
+      const uniqueFileName = `${Date.now()}-${randomUUID()}`;
+      const folderName = `${clinic.clinicName.replace(/\s/g, "_")}-documents/`;
+      const fileKey = `${folderName}${uniqueFileName}`;
+
+      // Загружаем файл в S3
+      const uploadParams = {
+        Bucket: BUCKET_NAME,
+        Key: fileKey,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      };
+
+      try {
+        await s3Client.send(new PutObjectCommand(uploadParams));
+      } catch (s3Error) {
+        console.error("Ошибка загрузки в S3:", s3Error);
+        return res.status(500).json({ message: "Ошибка загрузки в хранилище" });
+      }
+
+      // Создаём запись в базе данных
+      const newDocument = new Document({
+        title: documentTitle,
+        documentTitle,
+        fileUrl: `https://s3.cloud.ru/${BUCKET_NAME}/${fileKey}`,
+        recipient: { name: recipientName, phoneNumber: recipientPhoneNumber },
+        sender: {
+          clinicName: clinic.clinicName,
+          name: `${clinic.lastName} ${clinic.firstName} ${clinic.fathersName}`,
+          phoneNumber: clinic.phoneNumber,
+        },
+        status: "Отправлен",
+      });
+
+      await newDocument.save();
+
+      res.status(201).json({
+        message: "Файл загружен и документ создан для подписания",
+        document: {
+          id: newDocument._id,
+          documentTitle: newDocument.documentTitle,
+          fileUrl: newDocument.fileUrl,
+          recipient: newDocument.recipient,
+          sender: newDocument.sender,
+          status: newDocument.status,
+          createdAt: newDocument.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error("Ошибка при загрузке и отправке документа:", error);
+      res.status(500).json({ message: "Ошибка при обработке запроса" });
+    }
+  }
+);
+
+// Удаление документа со статусами Отправлен или Отклонён для авторизованной клиники
 router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
   const { documentId } = req.params;
 
@@ -228,98 +195,7 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/documents/sent-documents:
- *   get:
- *     tags:
- *       - Document
- *     summary: Получение отправленных документов
- *     description: Возвращает список отправленных документов с фильтрацией и пагинацией.
- *     parameters:
- *       - in: query
- *         name: startDate
- *         schema:
- *           type: string
- *         description: Начальная дата фильтрации (YYYY-MM-DD)
- *       - in: query
- *         name: endDate
- *         schema:
- *           type: string
- *         description: Конечная дата фильтрации (YYYY-MM-DD)
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [Отправлен, Отклонён, Подписан]
- *         description: Статус документа
- *       - in: query
- *         name: recipientName
- *         schema:
- *           type: string
- *         description: ФИО подписанта
- *       - in: query
- *         name: recipientPhoneNumber
- *         schema:
- *           type: string
- *         description: Номер телефона подписанта
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           example: 1
- *         description: Номер страницы
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           example: 10
- *         description: Количество документов на странице
- *     responses:
- *       200:
- *         description: Список документов с пагинацией
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 documents:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       documentTitle:
- *                         type: string
- *                         example: "Договор аренды"
- *                       dateSigned:
- *                         type: string
- *                         format: date-time
- *                       recipient:
- *                         type: object
- *                       sender:
- *                         type: object
- *                       fileUrl:
- *                         type: string
- *                       status:
- *                         type: string
- *                       createdAt:
- *                         type: string
- *                 pagination:
- *                   type: object
- *                   properties:
- *                     total:
- *                       type: integer
- *                     page:
- *                       type: integer
- *                     limit:
- *                       type: integer
- *                     totalPages:
- *                       type: integer
- *       500:
- *         description: Ошибка сервера
- */
+// Получение отправленных документов для авторизованной клиники с фильтрами
 router.get("/sent-documents", authMiddleware, async (req, res) => {
   try {
     const {
@@ -405,38 +281,7 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/documents/for-patient:
- *   get:
- *     tags:
- *       - Document
- *     summary: Получение документов для пациента
- *     description: Возвращает документы для пациента, сгруппированные по клиникам.
- *     parameters:
- *       - in: query
- *         name: clinicName
- *         schema:
- *           type: string
- *         description: Название клиники для фильтрации
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           example: 1
- *         description: Номер страницы
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           example: 10
- *         description: Количество документов на странице
- *     responses:
- *       200:
- *         description: Список документов, сгруппированных по клиникам
- *       500:
- *         description: Ошибка сервера
- */
+// Получение списка документов для авторизованного пациента
 router.get("/for-patient", authMiddleware, async (req, res) => {
   try {
     const { clinicName, page = 1, limit = 10 } = req.query;
@@ -486,110 +331,7 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/documents/contractors:
- *   get:
- *     tags:
- *       - Document
- *     summary: Получение списка контрагентов (подписантов)
- *     description: |
- *       Возвращает список контрагентов, которым клиника отправляла документы.
- *       Контрагенты включают как подписавших документы, так и тех, кому они были отправлены.
- *       Также есть возможность фильтровать по согласию на электронный документооборот (ЭДО).
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           example: 1
- *         description: Номер страницы (по умолчанию 1).
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           enum: [10, 20, 30, 40, 50]
- *           example: 10
- *         description: |
- *           Количество элементов на странице.
- *           Доступные значения: 10, 20, 30, 40, 50.
- *       - in: query
- *         name: recipientName
- *         schema:
- *           type: string
- *         description: Фильтр по ФИО подписанта (поддерживает частичное совпадение).
- *       - in: query
- *         name: recipientPhoneNumber
- *         schema:
- *           type: string
- *         description: Фильтр по номеру телефона подписанта (поддерживает частичное совпадение).
- *       - in: query
- *         name: consentToEDO
- *         schema:
- *           type: string
- *           enum: [true, false]
- *         description: |
- *           Фильтр по согласию на ЭДО.
- *           - `true` — показываются только подписавшие "Согласие на ЭДО".
- *           - `false` — показываются подписанты без согласия на ЭДО.
- *     responses:
- *       200:
- *         description: Успешный ответ со списком контрагентов.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 contractors:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       recipientName:
- *                         type: string
- *                         example: "Иванов Петр Сергеевич"
- *                         description: Полное имя подписанта.
- *                       recipientPhoneNumber:
- *                         type: string
- *                         example: "79998887766"
- *                         description: Номер телефона подписанта.
- *                       signedDocumentsCount:
- *                         type: integer
- *                         example: 2
- *                         description: Количество подписанных документов.
- *                       consentToEDO:
- *                         type: boolean
- *                         example: true
- *                         description: Подписал ли контрагент "Согласие на ЭДО".
- *                 pagination:
- *                   type: object
- *                   properties:
- *                     totalItems:
- *                       type: integer
- *                       example: 50
- *                       description: Общее количество контрагентов.
- *                     page:
- *                       type: integer
- *                       example: 1
- *                       description: Текущая страница.
- *                     limit:
- *                       type: integer
- *                       example: 10
- *                       description: Количество элементов на странице.
- *                     totalPages:
- *                       type: integer
- *                       example: 5
- *                       description: Общее количество страниц.
- *       400:
- *         description: Некорректные параметры запроса.
- *       403:
- *         description: Клиника не авторизована.
- *       500:
- *         description: Ошибка сервера при получении данных.
- */
-
+// Получение списка контрагентов с фильтрами
 router.get("/contractors", authMiddleware, async (req, res) => {
   try {
     const {
@@ -694,57 +436,7 @@ router.get("/contractors", authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/documents/{documentId}:
- *   get:
- *     tags:
- *       - Document
- *     summary: Получение содержимого файла документа
- *     description: Возвращает файл документа из хранилища объектов и его описание из базы данных.
- *     parameters:
- *       - name: documentId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *         description: ID документа
- *     responses:
- *       200:
- *         description: Файл и описание документа успешно получены
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 document:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     title:
- *                       type: string
- *                     recipient:
- *                       type: object
- *                     sender:
- *                       type: object
- *                     status:
- *                       type: string
- *                     createdAt:
- *                       type: string
- *                     documentTitle:
- *                       type: string
- *                     dateSigned:
- *                       type: string
- *                       format: date-time
- *                 fileContent:
- *                   type: string
- *                   format: binary
- *       404:
- *         description: Документ или файл не найден
- *       500:
- *         description: Ошибка при получении файла
- */
+// Получение документа по ID
 router.get("/:documentId", authMiddleware, async (req, res) => {
   const { documentId } = req.params;
 

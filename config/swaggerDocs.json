@@ -1,0 +1,635 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Medoc Backend API",
+    "version": "1.0.0",
+    "description": "API документация для Medoc Backend"
+  },
+  "servers": [
+    {
+      "url": "https://medoc.vastness.ru"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Эндпоинты для авторизации и регистрации"
+    },
+    { "name": "Document", "description": "Эндпоинты для работы с документами" },
+    { "name": "Files", "description": "Эндпоинты для работы с файлами" }
+  ],
+  "paths": {
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Запрос сброса пароля",
+        "description": "Отправляет письмо с уникальной ссылкой для сброса пароля.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "user@example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Письмо отправлено" },
+          "400": { "description": "Email отсутствует" },
+          "404": { "description": "Пользователь не найден" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/validate-reset-token": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Проверка токена сброса пароля",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Токен действителен" },
+          "400": { "description": "Токен истек" },
+          "404": { "description": "Неверный токен или пользователь не найден" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Сброс пароля",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "token": { "type": "string" },
+                  "newPassword": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Пароль успешно сброшен" },
+          "400": { "description": "Токен истек" },
+          "404": { "description": "Неверный токен или пользователь не найден" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Изменение пароля",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": { "type": "string" },
+                  "newPassword": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Пароль успешно изменён" },
+          "400": { "description": "Неверный текущий пароль" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/register/user": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Регистрация нового пользователя",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Пользователь зарегистрирован" },
+          "400": { "description": "Пользователь уже существует" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/register/clinic": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Регистрация новой клиники",
+        "description": "Создает новую клинику и возвращает JWT токен.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clinicName": {
+                    "type": "string",
+                    "example": "Клиника Здоровье"
+                  },
+                  "firstName": { "type": "string", "example": "Анна" },
+                  "lastName": { "type": "string", "example": "Иванова" },
+                  "fathersName": { "type": "string", "example": "Сергеевна" },
+                  "phoneNumber": { "type": "string", "example": "79998887766" },
+                  "email": { "type": "string", "example": "test@gmail.com" },
+                  "login": { "type": "string", "example": "clinic_login" },
+                  "password": { "type": "string", "example": "password123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Клиника успешно зарегистрирована" },
+          "400": {
+            "description": "Клиника с таким логином или номером телефона уже существует"
+          },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/login/user": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Авторизация пользователя",
+        "description": "Логин пользователя с использованием номера телефона и пароля",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phoneNumber": { "type": "string", "example": "71234567890" },
+                  "password": { "type": "string", "example": "password123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Успешная авторизация" },
+          "401": { "description": "Неверные учетные данные" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/login/clinic": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Авторизация клиники",
+        "description": "Выполняет логин клиники с использованием логина и пароля.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "login": { "type": "string", "example": "clinic_login" },
+                  "password": { "type": "string", "example": "password123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Успешная авторизация" },
+          "401": { "description": "Неверные учетные данные" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Получение данных текущего пользователя",
+        "description": "Возвращает данные о текущем пользователе или клинике на основе JWT токена.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Успешное получение данных",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": { "type": "string", "example": "user" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "firstName": { "type": "string" },
+                        "lastName": { "type": "string" },
+                        "fathersName": { "type": "string" },
+                        "phoneNumber": { "type": "string" },
+                        "email": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Токен отсутствует или недействителен" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/auth/clinic/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Получение данных текущей клиники",
+        "security": [{ "bearerAuth": [] }],
+        "description": "Возвращает данные о текущей клинике на основе JWT токена.",
+        "responses": {
+          "200": {
+            "description": "Успешное получение данных",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "clinicName": {
+                      "type": "string",
+                      "example": "Клиника Здоровье"
+                    },
+                    "responsible": {
+                      "type": "object",
+                      "properties": {
+                        "firstName": { "type": "string" },
+                        "lastName": { "type": "string" },
+                        "fathersName": { "type": "string" }
+                      }
+                    },
+                    "phoneNumber": {
+                      "type": "string",
+                      "example": "79998887766"
+                    },
+                    "login": { "type": "string", "example": "clinic_login" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Доступ запрещен для пользователей" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/documents/send": {
+      "post": {
+        "tags": ["Document"],
+        "summary": "Отправка документа на подписание",
+        "description": "Отправляет документ на подписание определённому получателю.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipientName": {
+                    "type": "string",
+                    "example": "Петров Иван Александрович"
+                  },
+                  "recipientPhoneNumber": {
+                    "type": "string",
+                    "example": "71234567890"
+                  },
+                  "documentTitle": {
+                    "type": "string",
+                    "example": "Договор аренды"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Документ успешно отправлен" },
+          "404": { "description": "Файл с указанным названием не найден" },
+          "403": { "description": "У вас нет доступа к этому файлу" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/documents/delete/{documentId}": {
+      "delete": {
+        "tags": ["Document"],
+        "summary": "Удаление документа",
+        "description": "Удаляет документ со статусами 'Отправлен' или 'Отклонён'.",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Идентификатор документа"
+          }
+        ],
+        "responses": {
+          "200": { "description": "Документ успешно удалён" },
+          "404": { "description": "Документ не найден" },
+          "400": { "description": "Документ нельзя удалить" },
+          "403": {
+            "description": "У вас нет прав на удаление этого документа"
+          },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/documents/sent-documents": {
+      "get": {
+        "tags": ["Document"],
+        "summary": "Получение отправленных документов",
+        "description": "Возвращает список отправленных документов с фильтрацией и пагинацией.",
+        "responses": {
+          "200": { "description": "Список документов с пагинацией" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/documents/for-patient": {
+      "get": {
+        "tags": ["Document"],
+        "summary": "Получение документов для пациента",
+        "description": "Возвращает документы для пациента, сгруппированные по клиникам.",
+        "responses": {
+          "200": {
+            "description": "Список документов, сгруппированных по клиникам"
+          },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/documents/contractors": {
+      "get": {
+        "tags": ["Document"],
+        "summary": "Получение списка контрагентов (подписантов)",
+        "description": "Возвращает список контрагентов, которым клиника отправляла документы.",
+        "responses": {
+          "200": { "description": "Список контрагентов" },
+          "500": { "description": "Ошибка сервера" }
+        }
+      }
+    },
+    "/api/documents/{documentId}": {
+      "get": {
+        "tags": ["Document"],
+        "summary": "Получение содержимого файла документа",
+        "description": "Возвращает файл документа из хранилища объектов и его описание из базы данных.",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "ID документа"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Файл и описание документа успешно получены"
+          },
+          "404": { "description": "Документ или файл не найден" },
+          "500": { "description": "Ошибка при получении файла" }
+        }
+      }
+    },
+    "/api/documents/upload-and-send": {
+      "post": {
+        "tags": ["Document"],
+        "summary": "Загрузка файла и отправка на подписание",
+        "description": "Загружает файл в хранилище и создаёт запись в базе данных для отправки на подписание.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Файл, который будет отправлен."
+                  },
+                  "documentTitle": {
+                    "type": "string",
+                    "example": "Договор аренды",
+                    "description": "Название документа."
+                  },
+                  "recipientName": {
+                    "type": "string",
+                    "example": "Петров Иван Александрович",
+                    "description": "ФИО получателя."
+                  },
+                  "recipientPhoneNumber": {
+                    "type": "string",
+                    "example": "71234567890",
+                    "description": "Телефон получателя."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Файл загружен и документ создан для подписания."
+          },
+          "400": {
+            "description": "Ошибка валидации или файл отсутствует в запросе."
+          },
+          "500": {
+            "description": "Ошибка при загрузке файла или создании документа."
+          }
+        }
+      }
+    },
+    "/api/files": {
+      "get": {
+        "tags": ["Files"],
+        "summary": "Получение файлов для авторизованного пользователя клиники",
+        "description": "Возвращает список всех файлов, созданных авторизованным пользователем или публичных файлов.",
+        "responses": {
+          "200": {
+            "description": "Список файлов успешно получен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "files": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileName": {
+                            "type": "string",
+                            "example": "1735277912995-30e99501-af02-4231-a776-1c263608b1ef"
+                          },
+                          "filePath": {
+                            "type": "string",
+                            "example": "https://s3.cloud.ru/docuflow-storage/files/1735277912995-30e99501-af02-4231-a776-1c263608b1ef"
+                          },
+                          "documentTitle": {
+                            "type": "string",
+                            "example": "Название документа"
+                          },
+                          "createdBy": {
+                            "type": "string",
+                            "example": "64d88bce57b0f4e8c7b5d841"
+                          },
+                          "isPublic": {
+                            "type": "boolean",
+                            "example": true
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "example": "2023-12-27T08:40:45.603Z"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Ошибка при получении файлов"
+          }
+        }
+      }
+    },
+    "/api/files/upload": {
+      "post": {
+        "tags": ["Files"],
+        "summary": "Загрузка файла",
+        "description": "Загружает файл в облачное хранилище и сохраняет данные о нём в базе данных.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "documentTitle": {
+                    "type": "string",
+                    "example": "Название документа"
+                  },
+                  "isPublic": {
+                    "type": "string",
+                    "example": "true"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Файл успешно загружен"
+          },
+          "400": {
+            "description": "Ошибка валидации или файл отсутствует в запросе"
+          },
+          "500": {
+            "description": "Ошибка при загрузке файла"
+          }
+        }
+      }
+    },
+    "/api/files/{fileId}": {
+      "delete": {
+        "tags": ["Files"],
+        "summary": "Удаление файла",
+        "description": "Удаляет файл из облачного хранилища и базы данных.",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID файла для удаления"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Файл успешно удалён"
+          },
+          "404": {
+            "description": "Файл не найден"
+          },
+          "403": {
+            "description": "У пользователя нет прав на удаление файла"
+          },
+          "500": {
+            "description": "Ошибка при удалении файла"
+          }
+        }
+      }
+    }
+  }
+}
