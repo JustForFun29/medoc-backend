@@ -3,10 +3,19 @@ const Document = require("../models/Document");
 const File = require("../models/File");
 const Clinic = require("../models/Clinic");
 const authMiddleware = require("../middleware/authMiddleware");
-const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} = require("@aws-sdk/client-s3");
+const { randomUUID } = require("crypto");
+const multer = require("multer");
 
 const { Readable } = require("stream");
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+const BUCKET_NAME = "docuflow-storage";
 
 // Настройка S3 клиента
 const s3Client = new S3Client({
