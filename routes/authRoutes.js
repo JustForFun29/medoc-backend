@@ -23,73 +23,7 @@ const transporter = nodemailer.createTransport({
 const generateResetToken = (id, type) =>
   jwt.sign({ id, type }, process.env.JWT_SECRET, { expiresIn: "24h" });
 
-/**
- * @swagger
- * tags:
- *   - name: Auth
- *     description: Эндпоинты для авторизации и регистрации
- */
-
-/**
- * @swagger
- * /api/auth/forgot-password:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Запрос сброса пароля - шаг 1
- *     description: Отправляет письмо с уникальной ссылкой для сброса пароля.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *                 example: "user@example.com"
- *     responses:
- *       200:
- *         description: Письмо для сброса пароля успешно отправлено.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Password reset email sent"
- *       400:
- *         description: Email отсутствует в запросе.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Email is required"
- *       404:
- *         description: Пользователь или клиника не найдены.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "User or clinic not found"
- *       500:
- *         description: Ошибка сервера при отправке письма.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Failed to send reset email"
- */
+// Забыль пароль (для неавторизованных пользователей) [ШАГ 1]
 router.post("/forgot-password", async (req, res) => {
   const { email } = req.body;
 
@@ -130,71 +64,7 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/validate-reset-token:
- *   get:
- *     tags:
- *       - Auth
- *     summary: Проверка токена сброса пароля - шаг 2
- *     description: Проверяет валидность токена сброса пароля и его связь с пользователем или клиникой.
- *     parameters:
- *       - name: email
- *         in: query
- *         required: true
- *         schema:
- *           type: string
- *           example: "user@example.com"
- *         description: Email, связанный с учетной записью.
- *       - name: token
- *         in: query
- *         required: true
- *         schema:
- *           type: string
- *           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- *         description: Токен, отправленный в письме для сброса пароля.
- *     responses:
- *       200:
- *         description: Токен действителен.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Token is valid"
- *       400:
- *         description: Токен истек.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Reset token expired"
- *       404:
- *         description: Неверный токен или пользователь не найден.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Invalid token or user not found"
- *       500:
- *         description: Ошибка сервера при проверке токена.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Failed to validate token"
- */
+// Валидация токена для восстановления пароля [ШАГ 2]
 router.get("/validate-reset-token", async (req, res) => {
   const { email, token } = req.query;
 
@@ -224,72 +94,7 @@ router.get("/validate-reset-token", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/reset-password:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Сброс пароля - шаг 3
- *     description: Сбрасывает пароль пользователя или клиники с использованием токена, email и нового пароля.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *                 example: "user@example.com"
- *               token:
- *                 type: string
- *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- *               newPassword:
- *                 type: string
- *                 example: "NewSecurePassword123"
- *     responses:
- *       200:
- *         description: Пароль успешно сброшен.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Password reset successfully"
- *       400:
- *         description: Токен истек.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Reset token expired"
- *       404:
- *         description: Неверный токен или пользователь не найден.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Invalid token or user not found"
- *       500:
- *         description: Ошибка сервера при сбросе пароля.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Failed to reset password"
- */
+// Поменять пароль (для неавторизованного пользователя) [ШАГ 3]
 router.post("/reset-password", async (req, res) => {
   const { email, token, newPassword } = req.body;
 
@@ -324,61 +129,7 @@ router.post("/reset-password", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/change-password:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Изменение пароля для авторизованного пользователя
- *     description: Позволяет авторизованному пользователю изменить свой текущий пароль.
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               currentPassword:
- *                 type: string
- *                 example: "OldPassword123"
- *               newPassword:
- *                 type: string
- *                 example: "NewSecurePassword123"
- *     responses:
- *       200:
- *         description: Пароль успешно изменён.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Password updated successfully"
- *       400:
- *         description: Неверный текущий пароль.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Current password is incorrect"
- *       500:
- *         description: Ошибка сервера.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Failed to update password"
- */
+// Поменять пароль (для авторизованного пользователя)
 router.post("/change-password", authMiddleware, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -432,57 +183,7 @@ const generateToken = (user, type) => {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
-/**
- * @swagger
- * /api/auth/register/user:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Регистрация нового пользователя
- *     description: Создает нового пользователя и возвращает JWT токен.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               firstName:
- *                 type: string
- *                 example: "Иван"
- *               lastName:
- *                 type: string
- *                 example: "Петров"
- *               fathersName:
- *                 type: string
- *                 example: "Александрович"
- *               phoneNumber:
- *                 type: string
- *                 example: "71234567890"
- *               email:
- *                 type: string
- *                 example: "test@gmail.com"
- *               password:
- *                 type: string
- *                 example: "password123"
- *     responses:
- *       201:
- *         description: Пользователь успешно зарегистрирован
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "User registered successfully"
- *                 token:
- *                   type: string
- *       400:
- *         description: Пользователь с таким номером телефона уже существует
- *       500:
- *         description: Ошибка сервера
- */
+// Регистрация нового пользователя (пациент)
 router.post("/register/user", async (req, res) => {
   const { firstName, lastName, fathersName, phoneNumber, email, password } =
     req.body;
@@ -521,63 +222,7 @@ router.post("/register/user", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/register/clinic:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Регистрация новой клиники
- *     description: Создает новую клинику и возвращает JWT токен.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               clinicName:
- *                 type: string
- *                 example: "Клиника Здоровье"
- *               firstName:
- *                 type: string
- *                 example: "Анна"
- *               lastName:
- *                 type: string
- *                 example: "Иванова"
- *               fathersName:
- *                 type: string
- *                 example: "Сергеевна"
- *               phoneNumber:
- *                 type: string
- *                 example: "79998887766"
- *               email:
- *                 type: string
- *                 example: "test@gmail.com"
- *               login:
- *                 type: string
- *                 example: "clinic_login"
- *               password:
- *                 type: string
- *                 example: "password123"
- *     responses:
- *       201:
- *         description: Клиника успешно зарегистрирована
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Clinic registered successfully"
- *                 token:
- *                   type: string
- *       400:
- *         description: Клиника с таким логином или номером телефона уже существует
- *       500:
- *         description: Ошибка сервера
- */
+// Регистрация новой клиники
 router.post("/register/clinic", async (req, res) => {
   const {
     clinicName,
@@ -627,45 +272,7 @@ router.post("/register/clinic", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/login/user:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Авторизация пользователя
- *     description: Логин пользователя с использованием номера телефона и пароля
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               phoneNumber:
- *                 type: string
- *                 example: "71234567890"
- *               password:
- *                 type: string
- *                 example: "password123"
- *     responses:
- *       200:
- *         description: Успешная авторизация
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Login successful"
- *                 token:
- *                   type: string
- *       401:
- *         description: Неверные учетные данные
- *       500:
- *         description: Ошибка сервера
- */
+// Авторизация для пользователя (пациента)
 router.post("/login/user", async (req, res) => {
   const { phoneNumber, password } = req.body;
 
@@ -690,45 +297,7 @@ router.post("/login/user", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/login/clinic:
- *   post:
- *     tags:
- *       - Auth
- *     summary: Авторизация клиники
- *     description: Выполняет логин клиники с использованием логина и пароля.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               login:
- *                 type: string
- *                 example: "clinic_login"
- *               password:
- *                 type: string
- *                 example: "password123"
- *     responses:
- *       200:
- *         description: Успешная авторизация
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Login successful"
- *                 token:
- *                   type: string
- *       401:
- *         description: Неверные учетные данные
- *       500:
- *         description: Ошибка сервера
- */
+// Авторизация для клиники
 router.post("/login/clinic", async (req, res) => {
   const { login, password } = req.body;
 
@@ -753,45 +322,7 @@ router.post("/login/clinic", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/me:
- *   get:
- *     tags:
- *       - Auth
- *     summary: Получение данных текущего пользователя
- *     description: Возвращает данные о текущем пользователе или клинике на основе JWT токена.
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Успешное получение данных
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 type:
- *                   type: string
- *                   example: "user"
- *                 data:
- *                   type: object
- *                   properties:
- *                     firstName:
- *                       type: string
- *                     lastName:
- *                       type: string
- *                     fathersName:
- *                       type: string
- *                     phoneNumber:
- *                       type: string
- *                     email:
- *                       type: string
- *       401:
- *         description: Токен отсутствует или недействителен
- *       500:
- *         description: Ошибка сервера
- */
+// Получение данных текущего пользователя (пациента)
 router.get("/me", authMiddleware, async (req, res) => {
   try {
     const { id, type } = req.user;
@@ -841,47 +372,7 @@ router.get("/me", authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/clinic/me:
- *   get:
- *     tags:
- *       - Auth
- *     summary: Получение данных текущей клиники
- *     security:
- *       - bearerAuth: []
- *     description: Возвращает данные о текущей клинике на основе JWT токена.
- *     responses:
- *       200:
- *         description: Успешное получение данных
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 clinicName:
- *                   type: string
- *                   example: "Клиника Здоровье"
- *                 responsible:
- *                   type: object
- *                   properties:
- *                     firstName:
- *                       type: string
- *                     lastName:
- *                       type: string
- *                     fathersName:
- *                       type: string
- *                 phoneNumber:
- *                   type: string
- *                   example: "79998887766"
- *                 login:
- *                   type: string
- *                   example: "clinic_login"
- *       403:
- *         description: Доступ запрещен для пользователей
- *       500:
- *         description: Ошибка сервера
- */
+// Получение данных текущей клиники
 router.get("/clinic/me", authMiddleware, async (req, res) => {
   try {
     // Проверяем, что это запрос от клиники

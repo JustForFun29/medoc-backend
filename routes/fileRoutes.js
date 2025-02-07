@@ -35,49 +35,7 @@ const FOLDER_NAME = "files/";
 // Настройка Multer для обработки файлов в памяти
 const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * @swagger
- * /api/files:
- *   get:
- *     tags:
- *       - Files
- *     summary: Получение файлов для авторизованного пользователя клиники
- *     description: Возвращает список всех файлов, созданных авторизованным пользователем или публичных файлов.
- *     responses:
- *       200:
- *         description: Список файлов успешно получен
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 files:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       fileName:
- *                         type: string
- *                         example: "1735277912995-30e99501-af02-4231-a776-1c263608b1ef"
- *                       filePath:
- *                         type: string
- *                         example: "https://s3.cloud.ru/docuflow-storage/files/1735277912995-30e99501-af02-4231-a776-1c263608b1ef"
- *                       documentTitle:
- *                         type: string
- *                         example: "Название документа"
- *                       createdBy:
- *                         type: string
- *                         example: "64d88bce57b0f4e8c7b5d841"
- *                       isPublic:
- *                         type: boolean
- *                         example: true
- *                       createdAt:
- *                         type: string
- *                         format: date-time
- *                         example: "2023-12-27T08:40:45.603Z"
- *       500:
- *         description: Ошибка при получении файлов
- */
+// Получение документов для текущей авторизованной клиники
 router.get("/", authMiddleware, async (req, res) => {
   try {
     // Получаем файлы, созданные пользователем или публичные файлы
@@ -92,38 +50,7 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/files/upload:
- *   post:
- *     tags:
- *       - Files
- *     summary: Загрузка файла
- *     description: Загружает файл в облачное хранилище и сохраняет данные о нём в базе данных.
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               file:
- *                 type: string
- *                 format: binary
- *               documentTitle:
- *                 type: string
- *                 example: "Название документа"
- *               isPublic:
- *                 type: string
- *                 example: "true"
- *     responses:
- *       201:
- *         description: Файл успешно загружен
- *       400:
- *         description: Ошибка валидации или файл отсутствует в запросе
- *       500:
- *         description: Ошибка при загрузке файла
- */
+// Сохранение файла в системе (шаблонного файла)
 router.post(
   "/upload",
   authMiddleware,
@@ -189,31 +116,7 @@ router.post(
   }
 );
 
-/**
- * @swagger
- * /api/files/{fileId}:
- *   delete:
- *     tags:
- *       - Files
- *     summary: Удаление файла
- *     description: Удаляет файл из облачного хранилища и базы данных.
- *     parameters:
- *       - name: fileId
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *         description: ID файла для удаления
- *     responses:
- *       200:
- *         description: Файл успешно удалён
- *       404:
- *         description: Файл не найден
- *       403:
- *         description: У пользователя нет прав на удаление файла
- *       500:
- *         description: Ошибка при удалении файла
- */
+// Удаление файла из системы (только если его создал сам пользователь)
 router.delete("/:fileName", authMiddleware, async (req, res) => {
   const { fileName } = req.params;
 
