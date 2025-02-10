@@ -445,6 +445,61 @@ router.get("/contractors", authMiddleware, async (req, res) => {
   }
 });
 
+// Тестовый маршрут для получения документа
+router.get("/test/document", authMiddleware, async (req, res) => {
+  try {
+    // Захардкоженные данные документа
+    const testDocument = {
+      id: "676fcd3ae58751778ccbbc99",
+      title: "Договор на оказание медицинских услуг",
+      recipient: {
+        name: "Иванов Сергей Петрович",
+        phoneNumber: "79991234567",
+      },
+      sender: {
+        clinicName: "Медицинский Центр 'Здоровье'",
+        name: "Анна Владимировна Смирнова",
+        phoneNumber: "79997654321",
+      },
+      status: "Подписан",
+      createdAt: new Date().toISOString(),
+    };
+
+    // Загружаем файл из S3 (из папки documents)
+    const fileKey = "documents/Договор на оказание мед услуг.pdf";
+
+    const getParams = {
+      Bucket: "docuflow-storage",
+      Key: fileKey,
+    };
+
+    const fileData = await s3Client.send(new GetObjectCommand(getParams));
+
+    // Читаем поток данных файла
+    const fileContent = await streamToBuffer(fileData.Body);
+
+    // Возвращаем данные о документе и файл
+    res.status(200).json({
+      document: testDocument,
+      fileContent: fileContent.toString("base64"), // Конвертируем содержимое файла в Base64
+    });
+  } catch (error) {
+    console.error("Ошибка при получении тестового документа:", error);
+    res
+      .status(500)
+      .json({ message: "Ошибка при получении тестового документа" });
+  }
+});
+
+// Утилита для преобразования потока (Readable) в буфер
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 // Получение документа по ID
 router.get("/:documentId", authMiddleware, async (req, res) => {
   const { documentId } = req.params;
