@@ -549,42 +549,6 @@ async function streamToBuffer(stream) {
   return Buffer.concat(chunks);
 }
 
-router.get("/contractor/:contractorId/documents", authMiddleware, async (req, res) => {
-  try {
-    const { contractorId } = req.params;
-
-    // Ищем контрагента и подтягиваем его документы
-    const contractor = await Contractor.findOne({
-      _id: contractorId,
-      clinicId: req.user.id, // Ограничиваем поиск только для клиники пользователя
-    }).populate("documentIds");
-
-    if (!contractor) {
-      return res.status(404).json({ message: "Контрагент не найден" });
-    }
-
-    res.status(200).json({
-      contractor: {
-        id: contractor._id,
-        firstName: contractor.firstName,
-        lastName: contractor.lastName,
-        fathersName: contractor.fathersName,
-        phoneNumber: contractor.phoneNumber,
-      },
-      documents: contractor.documentIds.map((doc) => ({
-        id: doc._id,
-        title: doc.title,
-        status: doc.status,
-        createdAt: doc.createdAt,
-        fileUrl: doc.fileUrl,
-      })),
-    });
-  } catch (error) {
-    console.error("Ошибка при получении документов контрагента:", error);
-    res.status(500).json({ message: "Ошибка при получении документов контрагента" });
-  }
-});
-
 // Получение документа по ID
 router.get("/:documentId", authMiddleware, async (req, res) => {
   const { documentId } = req.params;

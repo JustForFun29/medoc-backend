@@ -1113,95 +1113,6 @@
         }
       }
     },
-    "/api/documents/contractor/{contractorId}/documents": {
-      "get": {
-        "tags": [
-          "Document"
-        ],
-        "summary": "Получение документов контрагента",
-        "description": "Возвращает все документы, связанные с указанным контрагентом, принадлежащим текущей клинике.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "contractorId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "ID контрагента (Contractor)"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Список документов контрагента",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "contractor": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "firstName": {
-                          "type": "string"
-                        },
-                        "lastName": {
-                          "type": "string"
-                        },
-                        "fathersName": {
-                          "type": "string"
-                        },
-                        "phoneNumber": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "documents": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "title": {
-                            "type": "string"
-                          },
-                          "status": {
-                            "type": "string"
-                          },
-                          "createdAt": {
-                            "type": "string",
-                            "format": "date-time"
-                          },
-                          "fileUrl": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Контрагент не найден"
-          },
-          "500": {
-            "description": "Ошибка при получении документов контрагента"
-          }
-        }
-      }
-    },
     "/api/documents/test/document": {
       "get": {
         "tags": [
@@ -1394,6 +1305,301 @@
           },
           "500": {
             "description": "Ошибка при удалении файла"
+          }
+        }
+      }
+    },
+    "/api/contractors": {
+      "get": {
+        "tags": [
+          "Contractor"
+        ],
+        "summary": "Поиск контрагентов по номеру телефона",
+        "description": "Возвращает не более трёх контрагентов, у которых номер телефона частично совпадает с переданным запросом. Только для текущей авторизованной клиники.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "phoneNumber",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Часть или весь номер телефона для поиска"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успешный поиск контрагентов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "contractors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "_id": {
+                            "type": "string"
+                          },
+                          "firstName": {
+                            "type": "string"
+                          },
+                          "lastName": {
+                            "type": "string"
+                          },
+                          "fathersName": {
+                            "type": "string"
+                          },
+                          "phoneNumber": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Не передан phoneNumber"
+          },
+          "403": {
+            "description": "Клиника не авторизована"
+          },
+          "500": {
+            "description": "Ошибка при поиске контрагентов"
+          }
+        }
+      }
+    },
+    "/api/contractors": {
+      "post": {
+        "tags": [
+          "Contractor"
+        ],
+        "summary": "Создание контрагента",
+        "description": "Создаёт нового контрагента для авторизованной клиники.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "example": "Иван"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "example": "Петров"
+                  },
+                  "fathersName": {
+                    "type": "string",
+                    "example": "Сергеевич"
+                  },
+                  "phoneNumber": {
+                    "type": "string",
+                    "example": "79999999999"
+                  }
+                },
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "phoneNumber"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Контрагент успешно создан",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "contractor": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "firstName": {
+                          "type": "string"
+                        },
+                        "lastName": {
+                          "type": "string"
+                        },
+                        "fathersName": {
+                          "type": "string"
+                        },
+                        "phoneNumber": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Контрагент с таким номером телефона уже существует ИЛИ не переданы необходимые поля"
+          },
+          "403": {
+            "description": "Клиника не авторизована"
+          },
+          "500": {
+            "description": "Ошибка при создании контрагента"
+          }
+        }
+      }
+    },
+    "/api/contractors/{contractorId}": {
+      "delete": {
+        "tags": [
+          "Contractor"
+        ],
+        "summary": "Удаление контрагента",
+        "description": "Удаляет контрагента, если у него нет связанных документов (пустой documentIds).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "contractorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Идентификатор контрагента (Contractor._id)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Контрагент успешно удалён"
+          },
+          "400": {
+            "description": "Контрагента нельзя удалить, если у него есть документы"
+          },
+          "403": {
+            "description": "Клиника не авторизована"
+          },
+          "404": {
+            "description": "Контрагент не найден"
+          },
+          "500": {
+            "description": "Ошибка сервера"
+          }
+        }
+      }
+    },
+    "/api/contractors/{contractorId}/documents": {
+      "get": {
+        "tags": [
+          "Document"
+        ],
+        "summary": "Получение документов контрагента",
+        "description": "Возвращает все документы, связанные с указанным контрагентом, принадлежащим текущей клинике.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "contractorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "ID контрагента (Contractor)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список документов контрагента",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "contractor": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "firstName": {
+                          "type": "string"
+                        },
+                        "lastName": {
+                          "type": "string"
+                        },
+                        "fathersName": {
+                          "type": "string"
+                        },
+                        "phoneNumber": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "documents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "fileUrl": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Контрагент не найден"
+          },
+          "500": {
+            "description": "Ошибка при получении документов контрагента"
           }
         }
       }

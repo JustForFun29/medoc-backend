@@ -9,6 +9,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const fileRoutes = require("./routes/fileRoutes");
+const contractorRoutes = require("./routes/contractorRoutes");
 const swaggerDocs = require("./config/swaggerDocs.json");
 const swaggerUi = require("swagger-ui-express"); // Добавьте это в начале файла
 
@@ -27,10 +28,13 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // Маршруты для авторизации и регистрации
 app.use("/api/auth", authRoutes);
 
-// Маршрут для создания документа
+// Маршрут для работы с документами
 app.use("/api/documents", documentRoutes); // Подключаем маршруты документов
 
 app.use("/api/files", fileRoutes); // Добавляем маршруты для работы с файлами
+
+// Маршрут для работы с контрагентами
+app.use("/api/contractors", contractorRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

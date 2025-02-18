@@ -11,12 +11,6 @@ const {
 
 const router = express.Router();
 
-/**
- * @swagger
- * tags:
- *   - name: Files
- *     description: Эндпоинты для работы с файлами
- */
 
 // Настройка S3 клиента
 const s3Client = new S3Client({
