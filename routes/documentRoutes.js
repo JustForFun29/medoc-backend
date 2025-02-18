@@ -2,6 +2,7 @@ const express = require("express");
 const Document = require("../models/Document");
 const File = require("../models/File");
 const Clinic = require("../models/Clinic");
+const Contractor = require("../models/Contractor");
 const authMiddleware = require("../middleware/authMiddleware");
 const {
   S3Client,
@@ -33,37 +34,48 @@ router.post("/send", authMiddleware, async (req, res) => {
   try {
     const { recipientName, recipientPhoneNumber, documentTitle } = req.body;
 
-    const file = await File.findOne({ documentTitle });
-    if (!file) {
-      return res
-        .status(404)
-        .json({ message: "Файл с указанным названием не найден" });
-    }
-
-    if (!file.isPublic && !file.createdBy.equals(req.user.id)) {
-      return res
-        .status(403)
-        .json({ message: "У вас нет доступа к этому файлу" });
-    }
-
     const clinic = await Clinic.findById(req.user.id);
     if (!clinic) {
       return res.status(403).json({ message: "Клиника не авторизована" });
     }
 
+    // Создаем документ
     const newDocument = new Document({
       title: documentTitle,
-      fileUrl: file.filePath,
-      documentTitle,
+      fileUrl: `https://s3.cloud.ru/docuflow-storage/documents/${documentTitle}.pdf`, // Здесь нужно вставить реальный URL загруженного файла
       recipient: { name: recipientName, phoneNumber: recipientPhoneNumber },
       sender: {
         clinicName: clinic.clinicName,
         name: `${clinic.lastName} ${clinic.firstName} ${clinic.fathersName}`,
         phoneNumber: clinic.phoneNumber,
       },
+      status: "Отправлен",
     });
 
     await newDocument.save();
+
+    // Проверяем, есть ли уже такой контрагент в этой клинике
+    let contractor = await Contractor.findOne({
+      clinicId: clinic._id,
+      phoneNumber: recipientPhoneNumber,
+    });
+
+    if (!contractor) {
+      // Создаем нового контрагента
+      contractor = new Contractor({
+        clinicId: clinic._id,
+        firstName: recipientName.split(" ")[1] || "",
+        lastName: recipientName.split(" ")[0] || "",
+        fathersName: recipientName.split(" ")[2] || "",
+        phoneNumber: recipientPhoneNumber,
+        documentIds: [newDocument._id],
+      });
+    } else {
+      // Добавляем новый документ в массив
+      contractor.documentIds.push(newDocument._id);
+    }
+
+    await contractor.save();
 
     res.status(201).json({
       message: "Процесс подписания успешно начат",
@@ -78,11 +90,8 @@ router.post("/send", authMiddleware, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      message: "Ошибка при создании процесса подписания",
-      error: error.message,
-    });
+    console.error("Ошибка при отправке документа:", error);
+    res.status(500).json({ message: "Ошибка при отправке документа" });
   }
 });
 
@@ -99,7 +108,7 @@ router.post(
         return res.status(400).json({ message: "Файл отсутствует в запросе" });
       }
 
-      const clinic = req.user;
+      const clinic = await Clinic.findById(req.user.id);
       if (!clinic) {
         return res.status(403).json({ message: "Клиника не авторизована" });
       }
@@ -124,7 +133,7 @@ router.post(
         return res.status(500).json({ message: "Ошибка загрузки в хранилище" });
       }
 
-      // Создаём запись в базе данных
+      // Создаём новый документ в базе данных
       const newDocument = new Document({
         title: documentTitle,
         documentTitle,
@@ -139,6 +148,31 @@ router.post(
       });
 
       await newDocument.save();
+
+      // 🔽 🔽 🔽 Логика работы с контрагентами 🔽 🔽 🔽
+      let contractor = await Contractor.findOne({
+        clinicId: clinic._id,
+        phoneNumber: recipientPhoneNumber,
+      });
+
+      if (!contractor) {
+        // Создаем нового контрагента
+        contractor = new Contractor({
+          clinicId: clinic._id,
+          firstName: recipientName.split(" ")[1] || "",
+          lastName: recipientName.split(" ")[0] || "",
+          fathersName: recipientName.split(" ")[2] || "",
+          phoneNumber: recipientPhoneNumber,
+          documentIds: [newDocument._id],
+        });
+      } else {
+        // Если контрагент уже есть – просто добавляем новый документ
+        contractor.documentIds.push(newDocument._id);
+      }
+
+      await contractor.save();
+
+      // 🔼 🔼 🔼 Конец логики работы с контрагентами 🔼 🔼 🔼
 
       res.status(201).json({
         message: "Файл загружен и документ создан для подписания",
@@ -499,6 +533,42 @@ async function streamToBuffer(stream) {
   }
   return Buffer.concat(chunks);
 }
+
+router.get("/contractor/:contractorId/documents", authMiddleware, async (req, res) => {
+  try {
+    const { contractorId } = req.params;
+
+    // Ищем контрагента и подтягиваем его документы
+    const contractor = await Contractor.findOne({
+      _id: contractorId,
+      clinicId: req.user.id, // Ограничиваем поиск только для клиники пользователя
+    }).populate("documentIds");
+
+    if (!contractor) {
+      return res.status(404).json({ message: "Контрагент не найден" });
+    }
+
+    res.status(200).json({
+      contractor: {
+        id: contractor._id,
+        firstName: contractor.firstName,
+        lastName: contractor.lastName,
+        fathersName: contractor.fathersName,
+        phoneNumber: contractor.phoneNumber,
+      },
+      documents: contractor.documentIds.map((doc) => ({
+        id: doc._id,
+        title: doc.title,
+        status: doc.status,
+        createdAt: doc.createdAt,
+        fileUrl: doc.fileUrl,
+      })),
+    });
+  } catch (error) {
+    console.error("Ошибка при получении документов контрагента:", error);
+    res.status(500).json({ message: "Ошибка при получении документов контрагента" });
+  }
+});
 
 // Получение документа по ID
 router.get("/:documentId", authMiddleware, async (req, res) => {

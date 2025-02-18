@@ -5,6 +5,7 @@ const User = require("../models/User");
 const Clinic = require("../models/Clinic");
 const authMiddleware = require("../middleware/authMiddleware");
 const nodemailer = require("nodemailer");
+const Contractor = require("../models/Contractor");
 
 const router = express.Router();
 
@@ -50,11 +51,11 @@ router.post("/forgot-password", async (req, res) => {
 
     // Отправка email
     await transporter.sendMail({
-      from: `"Medoc Support" <${process.env.EMAIL_USER}>`,
+      from: `"Поддержка Докомед" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Medoc: Запрос на смену пароля",
-      text: `Здравствуйте ,${user.firstName} ${user.fathersName}!\nМы получили запрос на смену вашего пароля в системе Medoc.\nДля смены пароля перейдите по этой ссылке: ${resetLink}\nДанная ссылка будет доступна в течении 24 часов.\n\nС уважением,\nкоманда Medoc`,
-      html: `<p>Здравствуйте ,${user.firstName} ${user.fathersName}!\nМы получили запрос на смену вашего пароля в системе Medoc.\nДля смены пароля перейдите по этой <a href="${resetLink}">ссылке</a>\nДанная ссылка будет доступна в течении 24 часов.\n\nС уважением,\nкоманда Medoc</p>`,
+      subject: "Докомед: Запрос на смену пароля",
+      text: `Здравствуйте ,${user.firstName} ${user.fathersName}!\nМы получили запрос на смену вашего пароля в системе Докомед.\nДля смены пароля перейдите по этой ссылке: ${resetLink}\nДанная ссылка будет доступна в течении 24 часов.\n\nС уважением,\nкоманда Докомед`,
+      html: `<p>Здравствуйте ,${user.firstName} ${user.fathersName}!\nМы получили запрос на смену вашего пароля в системе Докомед.\nДля смены пароля перейдите по этой <a href="${resetLink}">ссылке</a>\nДанная ссылка будет доступна в течении 24 часов.\n\nС уважением,\nкоманда Докомед</p>`,
     });
 
     res.status(200).json({ message: "Password reset email sent" });
@@ -144,8 +145,8 @@ router.post("/change-password", authMiddleware, async (req, res) => {
       type === "user"
         ? await User.findById(id)
         : type === "clinic"
-        ? await Clinic.findById(id)
-        : null;
+          ? await Clinic.findById(id)
+          : null;
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -239,11 +240,11 @@ router.post("/register/clinic", async (req, res) => {
     const existingClinic = await Clinic.findOne({
       $or: [{ phoneNumber }, { email }, { login }],
     });
+
     if (existingClinic) {
-      return res.status(400).json({
-        message:
-          "Clinic with this phone number, email, or login already exists",
-      });
+      return res
+        .status(400)
+        .json({ message: "Клиника с такими данными уже существует" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -261,14 +262,17 @@ router.post("/register/clinic", async (req, res) => {
 
     await newClinic.save();
 
-    const token = generateToken(newClinic, "clinic");
+    // Создаём коллекцию контрагентов
+    const ContractorModel = Contractor(newClinic._id);
+    await ContractorModel.createCollection();
 
     res.status(201).json({
-      message: "Clinic registered successfully",
-      token,
+      message: "Клиника успешно зарегистрирована",
+      clinicId: newClinic._id,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Ошибка регистрации клиники:", error);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 });
 
