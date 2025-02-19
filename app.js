@@ -2,7 +2,7 @@
 const dotenv = require("dotenv");
 // Загрузка переменных окружения
 dotenv.config();
-
+require("./utils/cronJobs"); // Подключаем cronjobs
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");

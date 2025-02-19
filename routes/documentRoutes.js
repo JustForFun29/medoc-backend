@@ -9,6 +9,8 @@ const {
   S3Client,
   GetObjectCommand,
   PutObjectCommand,
+  CopyObjectCommand,
+  DeleteObjectCommand,
 } = require("@aws-sdk/client-s3");
 const { randomUUID } = require("crypto");
 const multer = require("multer");
@@ -96,14 +98,18 @@ router.post("/send", authMiddleware, async (req, res) => {
     const newDocument = new Document({
       title: documentTitle,
       documentTitle,
-      fileUrl: file.filePath,
-      recipient: { name: recipientName, phoneNumber: recipientPhoneNumber },
+      recipient: {
+        name: recipientName,
+        phoneNumber: recipientPhoneNumber,
+      },
       sender: {
         clinicName: clinic.clinicName,
         name: `${clinic.lastName} ${clinic.firstName} ${clinic.fathersName}`,
         phoneNumber: clinic.phoneNumber,
       },
-      status: "Отправлен",
+      bucket: file.bucket || BUCKET_NAME,
+      objectKey: file.objectKey || "",  // Или получаем из file.filePath
+      storageClass: "STANDARD" // STANDARD по умолчанию
     });
 
     await newDocument.save();
@@ -118,8 +124,9 @@ router.post("/send", authMiddleware, async (req, res) => {
         documentTitle: newDocument.documentTitle,
         recipient: newDocument.recipient,
         sender: newDocument.sender,
-        fileUrl: newDocument.fileUrl,
-        status: newDocument.status,
+        bucket: newDocument.bucket,
+        objectKey: newDocument.objectKey,
+        storageClass: newDocument.storageClass,
         createdAt: newDocument.createdAt,
       },
     });
@@ -152,7 +159,7 @@ router.post(
 
       // Генерируем уникальное имя файла
       const uniqueFileName = `${Date.now()}-${randomUUID()}`;
-      const folderName = `${clinic.clinicName.replace(/\s/g, "_")}-documents/`;
+      const folderName = `${clinic.clinicName.replace(/\s/g, "_")}_документы/`;
       const fileKey = `${folderName}${uniqueFileName}`;
 
       // Загружаем файл в S3
@@ -174,14 +181,15 @@ router.post(
       const newDocument = new Document({
         title: documentTitle,
         documentTitle,
-        fileUrl: `https://s3.cloud.ru/${BUCKET_NAME}/${fileKey}`,
         recipient: { name: recipientName, phoneNumber: recipientPhoneNumber },
         sender: {
           clinicName: clinic.clinicName,
           name: `${clinic.lastName} ${clinic.firstName} ${clinic.fathersName}`,
           phoneNumber: clinic.phoneNumber,
         },
-        status: "Отправлен",
+        bucket: BUCKET_NAME,
+        objectKey: fileKey,
+        storageClass: "STANDARD",
       });
 
       await newDocument.save();
@@ -194,7 +202,8 @@ router.post(
         document: {
           id: newDocument._id,
           documentTitle: newDocument.documentTitle,
-          fileUrl: newDocument.fileUrl,
+          bucket: newDocument.bucket,
+          objectKey: newDocument.objectKey,
           recipient: newDocument.recipient,
           sender: newDocument.sender,
           status: newDocument.status,
@@ -214,35 +223,39 @@ router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
 
   try {
     const document = await Document.findById(documentId);
-
     if (!document) {
       return res.status(404).json({ message: "Документ не найден" });
     }
 
     if (!["Отправлен", "Отклонён"].includes(document.status)) {
-      return res
-        .status(400)
-        .json({ message: "Документ нельзя удалить, так как он уже подписан" });
+      return res.status(400).json({
+        message: "Документ нельзя удалить, так как он уже подписан"
+      });
     }
 
     const clinic = await Clinic.findById(req.user.id);
-
     if (!clinic) {
       return res.status(403).json({ message: "Клиника не авторизована" });
     }
 
     if (document.sender.phoneNumber !== clinic.phoneNumber) {
-      return res
-        .status(403)
-        .json({ message: "У вас нет прав на удаление этого документа" });
+      return res.status(403).json({
+        message: "У вас нет прав на удаление этого документа"
+      });
     }
+
+    // Удалить физически из S3
+    await s3Client.send(new DeleteObjectCommand({
+      Bucket: document.bucket,
+      Key: document.objectKey
+    }));
 
     await Document.deleteOne({ _id: documentId });
 
     res.status(200).json({
       message: "Документ успешно удалён",
-      documentTitle: document.documentTitle, // Добавлено поле
-      dateSigned: document.dateSigned || null, // Добавлено поле
+      documentTitle: document.documentTitle,
+      dateSigned: document.dateSigned || null,
     });
   } catch (error) {
     console.error(error);
@@ -317,7 +330,7 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
-      .select("title recipient sender fileUrl status createdAt dateSigned");
+      .select("title recipient sender status createdAt dateSigned");
 
     const totalDocuments = await Document.countDocuments(filters);
 
@@ -358,7 +371,7 @@ router.get("/for-patient", authMiddleware, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
-      .select("title sender fileUrl status createdAt");
+      .select("title sender status createdAt");
 
     const groupedDocuments = documents.reduce((acc, doc) => {
       const clinicName = doc.sender.clinicName;
@@ -549,37 +562,119 @@ async function streamToBuffer(stream) {
   return Buffer.concat(chunks);
 }
 
+/**
+ * Тестовый маршрут для ручного перемещения файла между бакетами.
+ * Шлём sourceBucket, targetBucket, objectKey, и смотрим, как происходит копирование.
+ *
+ * Пример: 
+ *  POST /api/documents/test/move
+ *  Body: {
+ *    "sourceBucket": "docuflow-storage",
+ *    "targetBucket": "docuflow-storage-cold",
+ *    "objectKey": "Клиника_Докомоед-documents/1739904421818-3fdabdfd-0097-4342-889b-f0b947a6707d"
+ *  }
+ */
+router.post("/test/move", authMiddleware, async (req, res) => {
+  try {
+    const { sourceBucket, targetBucket, objectKey } = req.body;
+
+    if (!sourceBucket || !targetBucket || !objectKey) {
+      return res.status(400).json({
+        message: "Необходимо передать sourceBucket, targetBucket и objectKey"
+      });
+    }
+
+    // Вызываем вашу функцию копирования
+    await moveObjectBetweenBuckets({ sourceBucket, targetBucket, objectKey });
+
+    res.status(200).json({
+      message: "Файл успешно перемещён",
+      from: sourceBucket,
+      to: targetBucket,
+      objectKey
+    });
+  } catch (error) {
+    console.error("Ошибка при перемещении файла:", error);
+    res.status(500).json({
+      message: "Ошибка при перемещении файла",
+      error: error.message
+    });
+  }
+});
+
+// В том же documentRoutes.js (только для демонстрации!)
+router.get("/test/fetch-file", authMiddleware, async (req, res) => {
+  try {
+    const { bucket, objectKey } = req.query;
+    if (!bucket || !objectKey) {
+      return res.status(400).json({
+        message: "Необходимо передать ?bucket=<...>&objectKey=<...>"
+      });
+    }
+
+    // Скачиваем из S3
+    const getParams = {
+      Bucket: bucket,
+      Key: objectKey
+    };
+    const fileData = await s3Client.send(new GetObjectCommand(getParams));
+    const fileContent = await streamToBuffer(fileData.Body);
+
+    // Возвращаем Base64
+    res.status(200).json({
+      bucket,
+      objectKey,
+      base64: fileContent.toString("base64")
+    });
+  } catch (error) {
+    console.error("Ошибка при чтении файла:", error);
+    res.status(500).json({
+      message: "Ошибка при чтении файла",
+      error: error.message
+    });
+  }
+});
+
+
 // Получение документа по ID
 router.get("/:documentId", authMiddleware, async (req, res) => {
   const { documentId } = req.params;
 
   try {
-    // Извлекаем данные документа
     const document = await Document.findById(documentId);
     if (!document) {
       return res.status(404).json({ message: "Документ не найден" });
     }
 
-    // Получаем связанный файл из базы данных
-    const file = await File.findOne({ filePath: document.fileUrl });
-    if (!file) {
-      return res.status(404).json({ message: "Файл для документа не найден" });
+    // Если документ не в STANDARD — переносим обратно
+    if (document.storageClass !== "STANDARD") {
+      console.log(`Переводим документ ${documentId} обратно в STANDARD-хранилище...`);
+
+      // Синхронный вызов moveObjectBetweenBuckets
+      await moveObjectBetweenBuckets({
+        sourceBucket: document.bucket,
+        targetBucket: BUCKET_NAME, // например, "docuflow-storage"
+        objectKey: document.objectKey,
+      });
+
+      // Обновляем поля
+      document.bucket = BUCKET_NAME;
+      document.storageClass = "STANDARD";
     }
 
-    const fileKey = file.filePath.split(`${process.env.CLOUD_BUCKET_NAME}/`)[1]; // Извлекаем ключ объекта
+    // В любом случае обновляем lastAccessed
+    document.lastAccessed = new Date();
+    await document.save();
 
-    // Загружаем файл из S3
+    // Теперь документ точно лежит в STANDARD_BUCKET
     const getParams = {
-      Bucket: process.env.CLOUD_BUCKET_NAME,
-      Key: fileKey,
+      Bucket: document.bucket,      // уже "docuflow-storage"
+      Key: document.objectKey,
     };
 
     const fileData = await s3Client.send(new GetObjectCommand(getParams));
-
-    // Читаем поток данных файла
     const fileContent = await streamToBuffer(fileData.Body);
 
-    // Возвращаем данные о документе и файл
     res.status(200).json({
       document: {
         id: document._id,
@@ -587,9 +682,11 @@ router.get("/:documentId", authMiddleware, async (req, res) => {
         recipient: document.recipient,
         sender: document.sender,
         status: document.status,
+        storageClass: document.storageClass,
+        lastAccessed: document.lastAccessed,
         createdAt: document.createdAt,
       },
-      fileContent: fileContent.toString("base64"), // Конвертируем содержимое файла в Base64
+      fileContent: fileContent.toString("base64"),
     });
   } catch (error) {
     console.error("Ошибка при получении файла документа:", error);
@@ -604,6 +701,30 @@ async function streamToBuffer(stream) {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
+}
+
+
+async function moveObjectBetweenBuckets({
+  sourceBucket,
+  targetBucket,
+  objectKey,
+}) {
+  // 1) Copy
+  await s3Client.send(
+    new CopyObjectCommand({
+      CopySource: encodeURI(`${sourceBucket}/${objectKey}`),
+      Bucket: targetBucket,
+      Key: objectKey,
+    })
+  );
+
+  // 2) Delete
+  await s3Client.send(
+    new DeleteObjectCommand({
+      Bucket: sourceBucket,
+      Key: objectKey,
+    })
+  );
 }
 
 module.exports = router;
