@@ -172,7 +172,7 @@ router.post(
       // Генерируем уникальное имя файла
       const uniqueFileName = `${Date.now()}-${randomUUID()}`;
       const folderName = `${clinic.clinicName.replace(/\s/g, "_")}_документы/`;
-      const fileKey = `${folderName}${uniqueFileName}.pdf`;
+      const fileKey = `${folderName}${uniqueFileName}`;
 
       // Загружаем файл в S3
       const uploadParams = {
