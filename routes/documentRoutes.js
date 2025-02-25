@@ -157,10 +157,22 @@ router.post(
         return res.status(403).json({ message: "Клиника не авторизована" });
       }
 
+      // Проверяем, существует ли уже контрагент с таким номером телефона, но другим именем
+      const existingContractor = await Contractor.findOne({
+        phoneNumber: recipientPhoneNumber,
+        clinicId: clinic._id,
+      });
+
+      if (existingContractor && existingContractor.firstName !== recipientName.split(" ")[1]) {
+        return res.status(400).json({
+          message: "Ошибка: номер телефона уже зарегистрирован с другим именем.",
+        });
+      }
+
       // Генерируем уникальное имя файла
       const uniqueFileName = `${Date.now()}-${randomUUID()}`;
       const folderName = `${clinic.clinicName.replace(/\s/g, "_")}_документы/`;
-      const fileKey = `${folderName}${uniqueFileName}`;
+      const fileKey = `${folderName}${uniqueFileName}.pdf`;
 
       // Загружаем файл в S3
       const uploadParams = {
@@ -194,8 +206,12 @@ router.post(
 
       await newDocument.save();
 
-      await addDocumentToContractor(recipientName, recipientPhoneNumber, newDocument._id, clinic._id);
-
+      await addDocumentToContractor(
+        recipientName,
+        recipientPhoneNumber,
+        newDocument._id,
+        clinic._id
+      );
 
       res.status(201).json({
         message: "Файл загружен и документ создан для подписания",

@@ -35,7 +35,7 @@ router.get("/", authMiddleware, async (req, res) => {
     // Получаем файлы, созданные пользователем или публичные файлы
     const files = await File.find({
       $or: [{ createdBy: req.user.id }, { isPublic: true }],
-    }).select("fileName filePath documentTitle createdBy isPublic createdAt");
+    }).select("fileName documentTitle createdBy isPublic createdAt");
 
     res.status(200).json({ files });
   } catch (error) {
@@ -80,7 +80,6 @@ router.post(
       // Сохраняем файл в базе данных
       const newFile = new File({
         fileName: uniqueFileName,
-        filePath: `https://s3.cloud.ru/${BUCKET_NAME}/${s3Key}`,
         documentTitle: documentTitle,
         createdBy: req.user.id,
         isPublic: isPublic === "true",
