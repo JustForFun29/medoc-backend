@@ -708,6 +708,7 @@ router.get("/:documentId", authMiddleware, async (req, res) => {
         storageClass: document.storageClass,
         lastAccessed: document.lastAccessed,
         createdAt: document.createdAt,
+        events: document.events
       },
       fileContent: fileContent.toString("base64"),
     });
