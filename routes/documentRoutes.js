@@ -839,6 +839,7 @@ router.post("/generate-pdf", authMiddleware, async (req, res) => {
     // Формируем объект с данными для вставки
     const templateData = {
       patient_full_name: recipientName,
+      patient_phone_number: recipientPhoneNumber,
       clinic_name: user.clinicName,
       clinic_full_name: `${user.lastName} ${user.firstName} ${user.fathersName}`,
     };
