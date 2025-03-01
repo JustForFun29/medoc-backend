@@ -24,7 +24,8 @@ router.get("/", authMiddleware, async (req, res) => {
             });
         }
 
-        // Используем $regex для частичного совпадения.
+        // Используем $regex для 
+        // частичного совпадения.
         // Например, при phoneNumber=7900 вернёт все телефоны, содержащие "7900".
         // Можно дополнительно ограничить начало строки: new RegExp(`^${phoneNumber}`)
         const contractors = await Contractor.find({
