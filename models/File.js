@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 const FileSchema = new mongoose.Schema({
   documentTitle: { type: String, required: true, unique: true }, // Название документа (уникальное)
   fileName: { type: String, required: true }, // Название файла
-  filePath: { type: String, required: true }, // Путь к файлу
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",

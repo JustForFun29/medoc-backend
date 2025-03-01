@@ -14,7 +14,11 @@ const {
 } = require("@aws-sdk/client-s3");
 const { randomUUID } = require("crypto");
 const multer = require("multer");
-
+const PizZip = require("pizzip");
+const Docxtemplater = require("docxtemplater");
+const libre = require("libreoffice-convert"); // Использует LibreOffice
+const fs = require("fs");
+const path = require("path");
 const { Readable } = require("stream");
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -109,7 +113,8 @@ router.post("/send", authMiddleware, async (req, res) => {
       },
       bucket: file.bucket || BUCKET_NAME,
       objectKey: file.objectKey || "",  // Или получаем из file.filePath
-      storageClass: "STANDARD" // STANDARD по умолчанию
+      storageClass: "STANDARD", // STANDARD по умолчанию
+      status: "Подготовлен"
     });
 
     await newDocument.save();
@@ -118,7 +123,7 @@ router.post("/send", authMiddleware, async (req, res) => {
     await addDocumentToContractor(recipientName, recipientPhoneNumber, newDocument._id, clinic._id);
 
     res.status(201).json({
-      message: "Процесс подписания успешно начат",
+      message: "Процесс подписания успешно начат - документ подготовлен для отправки",
       document: {
         id: newDocument._id,
         documentTitle: newDocument.documentTitle,
@@ -128,6 +133,7 @@ router.post("/send", authMiddleware, async (req, res) => {
         objectKey: newDocument.objectKey,
         storageClass: newDocument.storageClass,
         createdAt: newDocument.createdAt,
+        status: newDocument.status,
       },
     });
   } catch (error) {
@@ -202,6 +208,7 @@ router.post(
         bucket: BUCKET_NAME,
         objectKey: fileKey,
         storageClass: "STANDARD",
+        status: "Подготовлен"
       });
 
       await newDocument.save();
@@ -742,5 +749,119 @@ async function moveObjectBetweenBuckets({
     })
   );
 }
+
+// Преобразуем ReadableStream из S3 в Buffer
+async function streamToBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+// Пример сервиса, который скачивает DOCX-шаблон из S3 и подставляет данные:
+async function generatePdfFromDocxTemplate({
+  bucket,
+  objectKey,
+  templateData // объект с данными для вставки в docxtemplater
+}) {
+  // 1) Скачиваем docx-файл из S3
+  const s3Client = new S3Client({
+    region: "ru-central-1",
+    endpoint: "https://s3.cloud.ru",
+    credentials: {
+      accessKeyId: process.env.CLOUD_ACCESS_KEY_ID,
+      secretAccessKey: process.env.CLOUD_SECRET_ACCESS_KEY,
+    },
+    forcePathStyle: true,
+  });
+
+  const fileData = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: objectKey,
+    })
+  );
+  const docxBuffer = await streamToBuffer(fileData.Body);
+
+  // 2) Загружаем docx в docxtemplater и вставляем данные
+  const zip = new PizZip(docxBuffer);
+  const doc = new Docxtemplater(zip, {
+    paragraphLoop: true,
+    linebreaks: true,
+    delimiters: {
+      start: '{',
+      end: '}'
+    }
+  });
+
+  try {
+    doc.render(templateData); // выполняет замену {{...}} на данные
+  } catch (err) {
+    throw new Error(`Ошибка при рендере шаблона DOCX: ${err.message}`);
+  }
+
+  // 3) Получаем новый docx-файл (уже с подставленными данными)
+  const filledDocxBuffer = doc.getZip().generate({ type: "nodebuffer" });
+
+  // 4) Конвертируем docx в pdf с помощью LibreOffice:
+  let pdfBuffer;
+  try {
+    pdfBuffer = await new Promise((resolve, reject) => {
+      libre.convert(filledDocxBuffer, ".pdf", undefined, (err, done) => {
+        if (err) reject(err);
+        else resolve(done);
+      });
+    });
+  } catch (err) {
+    throw new Error(`Ошибка конвертации DOCX в PDF: ${err.message}`);
+  }
+
+  // Возвращаем PDF в виде Buffer
+  return pdfBuffer;
+}
+
+// В вашем роуте:
+router.post("/generate-pdf", authMiddleware, async (req, res) => {
+  try {
+    const { recipientName, recipientPhoneNumber, documentTitle } = req.body;
+    // Берём данные из JWT
+    const user = req.user;
+    // user.clinicName и т.п.
+
+    // Ищем в своей базе, какой шаблон нужен. Предположим, file.objectKey — это ключ в S3
+    const file = await File.findOne({ documentTitle });
+    if (!file) {
+      return res.status(404).json({ message: "Шаблон не найден" });
+    }
+
+    // Формируем объект с данными для вставки
+    const templateData = {
+      patient_full_name: recipientName,
+      clinic_name: user.clinicName,
+      clinic_full_name: `${user.lastName} ${user.firstName} ${user.fathersName}`,
+    };
+
+    // Генерируем PDF
+    const pdfBuffer = await generatePdfFromDocxTemplate({
+      bucket: BUCKET_NAME,
+      objectKey: `files/${file.fileName}`,
+      templateData,
+    });
+
+    // Превращаем PDF в base64
+    const pdfBase64 = pdfBuffer.toString("base64");
+
+    // Возвращаем JSON
+    return res.json({
+      success: true,
+      pdfBase64,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Ошибка при генерации PDF", error: err.message });
+  }
+});
 
 module.exports = router;

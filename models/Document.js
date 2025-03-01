@@ -1,11 +1,29 @@
 // models/Document.js
 const mongoose = require("mongoose");
 
+const eventSchema = new mongoose.Schema(
+  {
+    type: {
+      type: String,
+      // Можно добавить enum, чтобы события были из ограниченного списка
+      enum: ["Подготовлен", "Отправлен", "Подписан", "Отклонён"],
+      required: true,
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false } // Не создаём отдельный _id для каждого события
+);
+
 const DocumentSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
     documentTitle: { type: String, required: true },
-    dateSigned: { type: Date },
+
+    // Можно убрать dateSigned, если теперь вы храните факт подписания в events
+    // dateSigned: { type: Date },
 
     recipient: {
       name: { type: String, required: true },
@@ -18,7 +36,7 @@ const DocumentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Отправлен", "Отклонён", "Подписан", "Подготовлен"],
+      enum: ["Подготовлен", "Отправлен", "Подписан", "Отклонён"],
       default: "Подготовлен",
     },
 
@@ -29,18 +47,24 @@ const DocumentSchema = new mongoose.Schema(
     },
     objectKey: {
       type: String,
-      required: true, // Уникальное имя файла или путь к нему
+      required: true,
     },
 
-    lastAccessed: {
-      type: Date,
-      default: Date.now,
-    },
+    // Поле для класса хранения
     storageClass: {
       type: String,
       enum: ["STANDARD", "COLD", "ICE"],
       default: "STANDARD",
     },
+
+    // Когда последний раз документ брали (для разогрева из COLD и т.д.)
+    lastAccessed: {
+      type: Date,
+      default: Date.now,
+    },
+
+    // Массив событий (type, timestamp)
+    events: [eventSchema],
   },
   { timestamps: true }
 );
