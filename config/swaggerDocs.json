@@ -1172,6 +1172,396 @@
         }
       }
     },
+    "/api/documents/send-on-sign": {
+      "post": {
+        "tags": [
+          "Document"
+        ],
+        "summary": "Отправка SMS-приглашения на подписание",
+        "description": "Отправляет SMS на номер получателя, уведомляя о необходимости подписать документ.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentId": {
+                    "type": "string",
+                    "example": "64f2e9d1231f6b9530a42bbb"
+                  }
+                },
+                "required": [
+                  "documentId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "СМС успешно отправлено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "СМС с приглашением на подписание отправлено"
+                    },
+                    "smsResponse": {
+                      "type": "object",
+                      "description": "Ответ от SMS-сервиса (при наличии)",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "documentId обязателен"
+          },
+          "404": {
+            "description": "Документ не найден"
+          },
+          "500": {
+            "description": "Ошибка при отправке СМС"
+          }
+        }
+      }
+    },
+    "/api/documents/generate-pdf": {
+      "post": {
+        "tags": [
+          "Document"
+        ],
+        "summary": "Генерация PDF на основе DOCX-шаблона",
+        "description": "Скачивает шаблон из S3, заполняет плейсхолдеры и конвертирует результат в PDF (base64).",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipientName": {
+                    "type": "string",
+                    "example": "Иванов Иван Иванович"
+                  },
+                  "recipientPhoneNumber": {
+                    "type": "string",
+                    "example": "79995553311"
+                  },
+                  "documentTitle": {
+                    "type": "string",
+                    "example": "Акт об оказании мед услуг"
+                  }
+                },
+                "required": [
+                  "recipientName",
+                  "recipientPhoneNumber",
+                  "documentTitle"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Успешная генерация PDF",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "pdfBase64": {
+                      "type": "string",
+                      "description": "Содержимое PDF в Base64"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Шаблон не найден"
+          },
+          "500": {
+            "description": "Ошибка при генерации PDF"
+          }
+        }
+      }
+    },
+    "/api/documents/test/move": {
+      "post": {
+        "tags": [
+          "Document"
+        ],
+        "summary": "Тестовое перемещение объекта между бакетами",
+        "description": "Используется для проверки переноса файла из одного хранилища S3 в другое.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sourceBucket": {
+                    "type": "string",
+                    "example": "docuflow-storage"
+                  },
+                  "targetBucket": {
+                    "type": "string",
+                    "example": "docuflow-storage-cold"
+                  },
+                  "objectKey": {
+                    "type": "string",
+                    "example": "Клиника_Докомед_документы/1739904421818-3fdabdfd-0097-4342-889b-f0b947a6707d"
+                  }
+                },
+                "required": [
+                  "sourceBucket",
+                  "targetBucket",
+                  "objectKey"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Файл успешно перемещён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Файл успешно перемещён"
+                    },
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "objectKey": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Необходимо передать sourceBucket, targetBucket и objectKey"
+          },
+          "500": {
+            "description": "Ошибка при перемещении файла"
+          }
+        }
+      }
+    },
+    "/api/documents/test/fetch-file": {
+      "get": {
+        "tags": [
+          "Document"
+        ],
+        "summary": "Тестовый маршрут для получения файла из S3",
+        "description": "Принимает bucket и objectKey как query-параметры, скачивает и возвращает файл в base64.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bucket",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Название бакета"
+          },
+          {
+            "name": "objectKey",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Ключ (путь) файла в бакете"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Файл успешно загружен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bucket": {
+                      "type": "string"
+                    },
+                    "objectKey": {
+                      "type": "string"
+                    },
+                    "base64": {
+                      "type": "string",
+                      "description": "Содержимое файла в base64"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Необходимо передать bucket и objectKey"
+          },
+          "500": {
+            "description": "Ошибка при чтении файла"
+          }
+        }
+      }
+    },
+    "/api/documents/{documentId}": {
+      "get": {
+        "tags": [
+          "Document"
+        ],
+        "summary": "Получение документа по ID (PDF в base64)",
+        "description": "Загружает документ из базы, проверяет storageClass, при необходимости возвращает в STANDARD, затем скачивает из S3, возвращая base64-содержимое.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Идентификатор документа"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Документ найден и возвращён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "document": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "recipient": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "phoneNumber": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "sender": {
+                          "type": "object",
+                          "properties": {
+                            "clinicName": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "phoneNumber": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "storageClass": {
+                          "type": "string"
+                        },
+                        "lastAccessed": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "events": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "timestamp": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "fileContent": {
+                      "type": "string",
+                      "description": "Содержимое файла в Base64"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документ не найден"
+          },
+          "500": {
+            "description": "Ошибка при получении файла"
+          }
+        }
+      }
+    },
     "/api/files": {
       "get": {
         "tags": [

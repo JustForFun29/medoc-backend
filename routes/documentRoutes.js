@@ -1,4 +1,5 @@
 const express = require("express");
+const axios = require("axios");
 const mongoose = require("mongoose");
 const Document = require("../models/Document");
 const File = require("../models/File");
@@ -239,6 +240,66 @@ router.post(
     }
   }
 );
+
+// Роут отправки SMS для приглашения на подписание
+router.post("/send-on-sign", authMiddleware, async (req, res) => {
+  try {
+    const { documentId } = req.body;
+    if (!documentId) {
+      return res.status(400).json({ message: "documentId обязателен" });
+    }
+
+    // Ищем документ
+    const doc = await Document.findById(documentId);
+    if (!doc) {
+      return res.status(404).json({ message: "Документ не найден" });
+    }
+
+    // Формируем текст SMS
+    // Пример: "{ФИО}, {Название клиники} отправила вам документ на подписание..."
+    const messageText = `${doc.recipient.name}, ${doc.sender.clinicName} отправила вам документ на подписание. Перейдите по ссылке https://docomed.ru для подписания`;
+
+    // Отправляем запрос к внешнему SMS-сервису
+    // Зависит от того, какой сервис вы используете:
+    //    - возможно, нуждается в API-ключе, токене и т.д.
+    //    - возможно, нужно другое поле вместо "message" и "phoneNumber"
+    // Примерно так:
+    const smsResponse = await axios.post("https://api.exolve.ru/messaging/v1/SendSMS", {
+      number: process.env.MTS_PHONE,
+      destination: doc.recipient.phoneNumber,
+      text: messageText,
+      // и любые другие нужные поля
+    }, {
+      headers: {
+        Authorization: `Bearer ${process.env.MTS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    // (Опционально) меняем статус на «Отправлен»
+    // и фиксируем событие:
+    doc.status = "Отправлен";
+    if (doc.events) {
+      doc.events.push({
+        type: "Отправлен",
+        timestamp: new Date(),
+      });
+    }
+    await doc.save();
+
+    // Возвращаем ответ
+    return res.json({
+      message: "СМС с приглашением на подписание отправлено",
+      smsResponse: smsResponse.data, // данные, вернувшиеся от сервиса
+    });
+  } catch (error) {
+    console.error("Ошибка при отправке СМС:", error);
+    return res.status(500).json({
+      message: "Ошибка при отправке СМС",
+      error: error.message,
+    });
+  }
+});
 
 // Удаление документа со статусами Отправлен или Отклонён для авторизованной клиники
 router.delete("/delete/:documentId", authMiddleware, async (req, res) => {
