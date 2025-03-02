@@ -100,6 +100,7 @@ router.post("/send", authMiddleware, async (req, res) => {
       return res.status(403).json({ message: "Клиника не авторизована" });
     }
 
+    // Добавляем событие "Подготовлен" в events
     const newDocument = new Document({
       title: documentTitle,
       documentTitle,
@@ -113,14 +114,20 @@ router.post("/send", authMiddleware, async (req, res) => {
         phoneNumber: clinic.phoneNumber,
       },
       bucket: file.bucket || BUCKET_NAME,
-      objectKey: file.objectKey || "",  // Или получаем из file.filePath
-      storageClass: "STANDARD", // STANDARD по умолчанию
-      status: "Подготовлен"
+      objectKey: file.objectKey || "",
+      storageClass: "STANDARD",
+      status: "Подготовлен",
+      events: [
+        {
+          type: "Подготовлен",
+          timestamp: new Date(),
+        },
+      ],
     });
 
     await newDocument.save();
 
-    // ✅ Добавляем документ в контрагента
+    // Добавляем документ в контрагента
     await addDocumentToContractor(recipientName, recipientPhoneNumber, newDocument._id, clinic._id);
 
     res.status(201).json({
@@ -196,7 +203,7 @@ router.post(
         return res.status(500).json({ message: "Ошибка загрузки в хранилище" });
       }
 
-      // Создаём новый документ в базе данных
+      // Создаём новый документ
       const newDocument = new Document({
         title: documentTitle,
         documentTitle,
@@ -209,11 +216,18 @@ router.post(
         bucket: BUCKET_NAME,
         objectKey: fileKey,
         storageClass: "STANDARD",
-        status: "Подготовлен"
+        status: "Подготовлен",
+        events: [
+          {
+            type: "Подготовлен",
+            timestamp: new Date(),
+          },
+        ],
       });
 
       await newDocument.save();
 
+      // Добавляем документ в контрагента
       await addDocumentToContractor(
         recipientName,
         recipientPhoneNumber,
