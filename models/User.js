@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const phoneValidator = /^7\d{11}$/;
+const phoneValidator = /^7\d{10}$/;
 const emailValidator = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Простая валидация email
 
 const UserSchema = new mongoose.Schema(
