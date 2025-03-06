@@ -399,6 +399,7 @@ router.get("/sent-documents", authMiddleware, async (req, res) => {
         docSent: "Отправлен",
         docRejected: "Отклонён",
         docSigned: "Подписан",
+        docPrepared: "Подготовлен"
       };
 
       let statusArray = Array.isArray(status) ? status : [status];
