@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs/promises");
 const { randomUUID } = require("crypto");
 const libre = require("libreoffice-convert");
-const { PDFImage } = require("pdf-image");
+const { execFile } = require("child_process");
 const File = require("../models/File");
 const {
     S3Client,
@@ -67,9 +67,9 @@ exports.uploadFile = async (req, res) => {
         await fs.mkdir(LOCAL_TMP_DIR, { recursive: true });
 
         const uniqueFileName = `${Date.now()}-${randomUUID()}`;
-        const s3Key = `files/${uniqueFileName}`;
+        const s3Key = `${FOLDER_NAME}${uniqueFileName}`;
 
-        // Загружаем исходный файл в S3
+        // Исходный файл -> S3
         await s3Client.send(new PutObjectCommand({
             Bucket: BUCKET_NAME,
             Key: s3Key,
@@ -84,7 +84,7 @@ exports.uploadFile = async (req, res) => {
             isPublic: isPublic === "true",
         });
 
-        // Генерируем PDF, если исходный файл не PDF
+        // Конвертация в PDF (если нужно)
         let pdfBuffer = req.file.buffer;
         const isPdf = documentTitle.toLowerCase().endsWith(".pdf");
 
@@ -97,7 +97,7 @@ exports.uploadFile = async (req, res) => {
             });
         }
 
-        // Сохраняем PDF-превью в S3
+        // PDF-превью -> S3
         const pdfKey = `files/preview-pdf-${uniqueFileName}.pdf`;
         await s3Client.send(new PutObjectCommand({
             Bucket: BUCKET_NAME,
@@ -108,25 +108,34 @@ exports.uploadFile = async (req, res) => {
 
         newFile.previewPdfKey = pdfKey;
 
-        // Временно сохраняем PDF-файл на диск для генерации PNG-превью
+        // Сохраняем PDF локально
         const tmpPdfPath = path.join(LOCAL_TMP_DIR, `${uniqueFileName}.pdf`);
         await fs.writeFile(tmpPdfPath, pdfBuffer);
 
-        // Генерируем PNG первой страницы через PDFImage
-        const pdfImage = new PDFImage(tmpPdfPath, {
-            outputDirectory: LOCAL_TMP_DIR,
-            convertOptions: {
-                "-density": "150",
-                "-quality": "90"
-            }
+        // Используем Poppler напрямую
+        const popplerBin = process.platform === "win32"
+            ? "C:\\Program Files\\Poppler\\poppler-24.08.0\\Library\\bin\\pdftoppm.exe"
+            : "pdftoppm";
+
+        const outputBaseName = path.join(LOCAL_TMP_DIR, `preview-png-${uniqueFileName}`);
+
+        await new Promise((resolve, reject) => {
+            execFile(popplerBin, [
+                "-png",
+                "-f", "1",
+                "-singlefile",
+                tmpPdfPath,
+                outputBaseName
+            ], (error, stdout, stderr) => {
+                if (error) reject({ error, stdout, stderr });
+                else resolve();
+            });
         });
 
-        const pngImagePath = await pdfImage.convertPage(0); // 0 = первая страница
+        const generatedPngPath = `${outputBaseName}.png`;
 
-        // Читаем сгенерированный PNG в буфер
-        const pngBuffer = await fs.readFile(pngImagePath);
-
-        // Загружаем PNG-превью в S3
+        // PNG-превью -> S3
+        const pngBuffer = await fs.readFile(generatedPngPath);
         const pngKey = `files/preview-png-${uniqueFileName}.png`;
         await s3Client.send(new PutObjectCommand({
             Bucket: BUCKET_NAME,
@@ -137,11 +146,10 @@ exports.uploadFile = async (req, res) => {
 
         newFile.previewPngKey = pngKey;
 
-        // Очищаем временные файлы
+        // Удаление временных файлов
         await fs.unlink(tmpPdfPath);
-        await fs.unlink(pngImagePath);
+        await fs.unlink(generatedPngPath);
 
-        // Сохраняем запись в базе данных
         await newFile.save();
 
         res.status(201).json({
