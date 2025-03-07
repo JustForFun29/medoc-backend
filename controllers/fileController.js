@@ -11,8 +11,6 @@ const {
     DeleteObjectCommand,
     GetObjectCommand
 } = require("@aws-sdk/client-s3");
-const { PDFDocument } = require("pdf-lib");
-const sharp = require("sharp");
 
 // ======= ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ =======
 async function streamToBuffer(stream) {
@@ -57,6 +55,10 @@ exports.getFiles = async (req, res) => {
 const LOCAL_TMP_DIR = path.join(__dirname, "../tmp"); // Гарантированно правильный путь на всех системах
 
 exports.uploadFile = async (req, res) => {
+    const uniqueFileName = `${Date.now()}-${randomUUID()}`;
+    const tmpPdfPath = path.join(LOCAL_TMP_DIR, `${uniqueFileName}.pdf`);
+    const generatedPngPath = path.join(LOCAL_TMP_DIR, `preview-png-${uniqueFileName}.png`);
+
     try {
         const { isPublic, documentTitle } = req.body;
 
@@ -66,10 +68,9 @@ exports.uploadFile = async (req, res) => {
 
         await fs.mkdir(LOCAL_TMP_DIR, { recursive: true });
 
-        const uniqueFileName = `${Date.now()}-${randomUUID()}`;
         const s3Key = `${FOLDER_NAME}${uniqueFileName}`;
 
-        // Исходный файл -> S3
+        // Загрузка исходного файла в S3
         await s3Client.send(new PutObjectCommand({
             Bucket: BUCKET_NAME,
             Key: s3Key,
@@ -86,9 +87,7 @@ exports.uploadFile = async (req, res) => {
 
         // Конвертация в PDF (если нужно)
         let pdfBuffer = req.file.buffer;
-        const isPdf = documentTitle.toLowerCase().endsWith(".pdf");
-
-        if (!isPdf) {
+        if (!documentTitle.toLowerCase().endsWith(".pdf")) {
             pdfBuffer = await new Promise((resolve, reject) => {
                 libre.convert(req.file.buffer, ".pdf", undefined, (err, done) => {
                     if (err) reject(err);
@@ -97,7 +96,7 @@ exports.uploadFile = async (req, res) => {
             });
         }
 
-        // PDF-превью -> S3
+        // PDF в S3
         const pdfKey = `files/preview-pdf-${uniqueFileName}.pdf`;
         await s3Client.send(new PutObjectCommand({
             Bucket: BUCKET_NAME,
@@ -105,36 +104,25 @@ exports.uploadFile = async (req, res) => {
             Body: pdfBuffer,
             ContentType: "application/pdf",
         }));
-
         newFile.previewPdfKey = pdfKey;
 
-        // Сохраняем PDF локально
-        const tmpPdfPath = path.join(LOCAL_TMP_DIR, `${uniqueFileName}.pdf`);
+        // Сохраняем PDF временно
         await fs.writeFile(tmpPdfPath, pdfBuffer);
 
-        // Используем Poppler напрямую
+        // Генерируем PNG (Poppler)
         const popplerBin = process.platform === "win32"
             ? "C:\\Program Files\\Poppler\\poppler-24.08.0\\Library\\bin\\pdftoppm.exe"
             : "pdftoppm";
 
-        const outputBaseName = path.join(LOCAL_TMP_DIR, `preview-png-${uniqueFileName}`);
-
         await new Promise((resolve, reject) => {
-            execFile(popplerBin, [
-                "-png",
-                "-f", "1",
-                "-singlefile",
-                tmpPdfPath,
-                outputBaseName
-            ], (error, stdout, stderr) => {
-                if (error) reject({ error, stdout, stderr });
-                else resolve();
-            });
+            execFile(popplerBin, ["-png", "-f", "1", "-singlefile", tmpPdfPath, generatedPngPath.replace(/\.png$/, '')],
+                (error) => {
+                    if (error) reject(error);
+                    else resolve();
+                });
         });
 
-        const generatedPngPath = `${outputBaseName}.png`;
-
-        // PNG-превью -> S3
+        // PNG в S3
         const pngBuffer = await fs.readFile(generatedPngPath);
         const pngKey = `files/preview-png-${uniqueFileName}.png`;
         await s3Client.send(new PutObjectCommand({
@@ -143,12 +131,7 @@ exports.uploadFile = async (req, res) => {
             Body: pngBuffer,
             ContentType: "image/png",
         }));
-
         newFile.previewPngKey = pngKey;
-
-        // Удаление временных файлов
-        await fs.unlink(tmpPdfPath);
-        await fs.unlink(generatedPngPath);
 
         await newFile.save();
 
@@ -160,14 +143,20 @@ exports.uploadFile = async (req, res) => {
     } catch (error) {
         console.error("Ошибка при загрузке файла:", error);
         res.status(500).json({ message: "Ошибка при загрузке файла" });
+    } finally {
+        // Гарантированное удаление временных файлов
+        await Promise.all([
+            fs.unlink(tmpPdfPath).catch(() => null),
+            fs.unlink(generatedPngPath).catch(() => null)
+        ]);
     }
 };
 
 
 exports.deleteFile = async (req, res) => {
-    const { fileName } = req.params;
+    const { id } = req.params;
     try {
-        const file = await File.findOne({ fileName });
+        const file = await File.findById(id);
         if (!file) {
             return res.status(404).json({ message: "Файл не найден" });
         }
@@ -177,7 +166,7 @@ exports.deleteFile = async (req, res) => {
                 .json({ message: "У вас нет прав на удаление этого файла" });
         }
 
-        // Удаляем исходный объект
+        // Удаляем исходный объект из S3
         await s3Client.send(
             new DeleteObjectCommand({
                 Bucket: BUCKET_NAME,
@@ -185,7 +174,7 @@ exports.deleteFile = async (req, res) => {
             })
         );
 
-        // Удаляем previewPdfKey / previewPngKey, если есть
+        // Удаляем previewPdfKey, если есть
         if (file.previewPdfKey) {
             await s3Client.send(
                 new DeleteObjectCommand({
@@ -194,6 +183,8 @@ exports.deleteFile = async (req, res) => {
                 })
             );
         }
+
+        // Удаляем previewPngKey, если есть
         if (file.previewPngKey) {
             await s3Client.send(
                 new DeleteObjectCommand({
@@ -203,7 +194,7 @@ exports.deleteFile = async (req, res) => {
             );
         }
 
-        await File.deleteOne({ fileName });
+        await File.deleteOne({ _id: id });
 
         res.status(200).json({ message: "Файл успешно удалён" });
     } catch (error) {

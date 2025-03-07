@@ -21,7 +21,7 @@ router.get("/", authMiddleware, getFiles);
 router.post("/upload", authMiddleware, upload.single("file"), uploadFile);
 
 // Удаление файла (DELETE /api/files/:fileName)
-router.delete("/:fileName", authMiddleware, deleteFile);
+router.delete("/:id", authMiddleware, deleteFile);
 
 // Получение pdf-превью (GET /api/files/:id/pdfPreview)
 router.get("/:id/pdf", authMiddleware, getPdfPreview);
