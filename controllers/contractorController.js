@@ -1,37 +1,93 @@
 const Contractor = require("../models/Contractor");
 const Clinic = require("../models/Clinic");
+const Document = require("../models/Document");
 
 exports.searchContractors = async (req, res) => {
     try {
-        const { phoneNumber } = req.query;
-        const clinic = await Clinic.findById(req.user.id);
+        const {
+            page = 1,
+            limit = 10,
+            recipientName,
+            recipientPhoneNumber,
+            consentToEDO,
+        } = req.query;
 
+        const pageSize = parseInt(limit, 10);
+        const pageNumber = parseInt(page, 10);
+        const skip = (pageNumber - 1) * pageSize;
+
+        if (![10, 20, 30, 40, 50].includes(pageSize)) {
+            return res.status(400).json({ message: "Некорректное значение limit" });
+        }
+
+        const clinic = await Clinic.findById(req.user.id);
         if (!clinic) {
             return res.status(403).json({ message: "Клиника не авторизована" });
         }
 
-        let filter = { clinicId: clinic._id };
+        const filters = { "sender.phoneNumber": clinic.phoneNumber };
 
-        if (phoneNumber) {
-            filter.phoneNumber = { $regex: new RegExp(phoneNumber.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) };
-
+        if (recipientName) {
+            filters["recipient.name"] = { $regex: new RegExp(recipientName, "i") };
         }
 
-        const contractorsQuery = Contractor.find(filter)
-            .select("_id firstName lastName fathersName phoneNumber");
-
-        if (phoneNumber) {
-            contractorsQuery;
+        if (recipientPhoneNumber) {
+            filters["recipient.phoneNumber"] = { $regex: new RegExp(recipientPhoneNumber, "i") };
         }
 
-        const contractors = await contractorsQuery;
+        const documents = await Document.find(filters)
+            .select("recipient.name recipient.phoneNumber status title")
+            .sort({ createdAt: -1 });
 
-        res.status(200).json({ contractors });
+        const contractorsMap = new Map();
+
+        documents.forEach((doc) => {
+            const phone = doc.recipient.phoneNumber;
+
+            if (!contractorsMap.has(phone)) {
+                contractorsMap.set(phone, {
+                    recipientName: doc.recipient.name,
+                    recipientPhoneNumber: phone,
+                    signedDocumentsCount: 0,
+                    consentToEDO: false,
+                });
+            }
+
+            if (doc.status === "Подписан") {
+                contractorsMap.get(phone).signedDocumentsCount += 1;
+            }
+
+            if (doc.title === "Согласие на ЭДО" && doc.status === "Подписан") {
+                contractorsMap.get(phone).consentToEDO = true;
+            }
+        });
+
+        let contractorsArray = Array.from(contractorsMap.values());
+
+        if (consentToEDO === "true") {
+            contractorsArray = contractorsArray.filter((c) => c.consentToEDO === true);
+        } else if (consentToEDO === "false") {
+            contractorsArray = contractorsArray.filter((c) => c.consentToEDO === false);
+        }
+
+        const total = contractorsArray.length;
+        const paginatedContractors = contractorsArray.slice(skip, skip + pageSize);
+
+        res.status(200).json({
+            contractors: paginatedContractors,
+            pagination: {
+                total,
+                page: pageNumber,
+                limit: pageSize,
+                totalPages: Math.ceil(total / pageSize),
+            },
+        });
     } catch (error) {
-        console.error("Ошибка при поиске контрагентов:", error);
-        res.status(500).json({ message: "Ошибка при поиске контрагентов" });
+        console.error("Ошибка при получении контрагентов:", error);
+        res.status(500).json({ message: "Ошибка при получении контрагентов" });
     }
 };
+
 
 exports.createContractor = async (req, res) => {
     try {

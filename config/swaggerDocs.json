@@ -992,127 +992,6 @@
         }
       }
     },
-    "/api/documents/contractors": {
-      "get": {
-        "tags": [
-          "Document"
-        ],
-        "summary": "Получение списка контрагентов",
-        "description": "Возвращает список контрагентов, которым клиника отправляла документы.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 1
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 10
-            },
-            "description": "Допустимые значения: [10, 20, 30, 40, 50]"
-          },
-          {
-            "name": "recipientName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Поиск по ФИО"
-          },
-          {
-            "name": "recipientPhoneNumber",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Поиск по телефону"
-          },
-          {
-            "name": "consentToEDO",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "true",
-                "false"
-              ]
-            },
-            "description": "Фильтрация по подписанному «Согласию на ЭДО»"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Список контрагентов",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "contractors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "recipientName": {
-                            "type": "string"
-                          },
-                          "recipientPhoneNumber": {
-                            "type": "string"
-                          },
-                          "signedDocumentsCount": {
-                            "type": "number"
-                          },
-                          "consentToEDO": {
-                            "type": "boolean"
-                          }
-                        }
-                      }
-                    },
-                    "pagination": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "number"
-                        },
-                        "page": {
-                          "type": "number"
-                        },
-                        "limit": {
-                          "type": "number"
-                        },
-                        "totalPages": {
-                          "type": "number"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Некорректное значение limit"
-          },
-          "403": {
-            "description": "Клиника не авторизована"
-          },
-          "500": {
-            "description": "Ошибка сервера"
-          }
-        }
-      }
-    },
     "/api/documents/test/document": {
       "get": {
         "tags": [
@@ -1755,8 +1634,7 @@
         "tags": [
           "Contractor"
         ],
-        "summary": "Поиск контрагентов по номеру телефона",
-        "description": "Возвращает не более трёх контрагентов, у которых номер телефона частично совпадает с переданным запросом. Только для текущей авторизованной клиники.",
+        "summary": "Получение списка контрагентов с фильтрами",
         "security": [
           {
             "bearerAuth": []
@@ -1764,59 +1642,53 @@
         ],
         "parameters": [
           {
-            "name": "phoneNumber",
+            "name": "page",
             "in": "query",
-            "required": true,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          },
+          {
+            "name": "recipientName",
+            "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Часть или весь номер телефона для поиска"
+            }
+          },
+          {
+            "name": "recipientPhoneNumber",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "consentToEDO",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Успешный поиск контрагентов",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "contractors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "_id": {
-                            "type": "string"
-                          },
-                          "firstName": {
-                            "type": "string"
-                          },
-                          "lastName": {
-                            "type": "string"
-                          },
-                          "fathersName": {
-                            "type": "string"
-                          },
-                          "phoneNumber": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Не передан phoneNumber"
-          },
-          "403": {
-            "description": "Клиника не авторизована"
+            "description": "Список контрагентов успешно получен"
           },
           "500": {
-            "description": "Ошибка при поиске контрагентов"
+            "description": "Ошибка при получении контрагентов"
           }
         }
       },

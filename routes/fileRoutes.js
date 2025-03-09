@@ -14,19 +14,19 @@ const {
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Получение документов (GET /api/files)
+// [1] Получение документов (GET /api/files)
 router.get("/", authMiddleware, getFiles);
 
-// Загрузка файла (POST /api/files/upload)
+// [2] Загрузка файла (POST /api/files/upload)
 router.post("/upload", authMiddleware, upload.single("file"), uploadFile);
 
-// Удаление файла (DELETE /api/files/:fileName)
+// [3] Удаление файла (DELETE /api/files/:fileName)
 router.delete("/:id", authMiddleware, deleteFile);
 
-// Получение pdf-превью (GET /api/files/:id/pdfPreview)
+// [4] Получение pdf-превью (GET /api/files/:id/pdfPreview)
 router.get("/:id/pdf", authMiddleware, getPdfPreview);
 
-// Аналогично можно сделать (GET /api/files/:id/png) -> getPngPreview
+// [5] Получение png-превью (GET /api/files/:id/png)
 router.get("/:id/png", authMiddleware, getPngPreview);
 
 module.exports = router;

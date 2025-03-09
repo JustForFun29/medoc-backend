@@ -11,7 +11,7 @@ const documentRoutes = require("./routes/documentRoutes");
 const fileRoutes = require("./routes/fileRoutes");
 const contractorRoutes = require("./routes/contractorRoutes");
 const swaggerDocs = require("./config/swaggerDocs.json");
-const swaggerUi = require("swagger-ui-express"); // Добавьте это в начале файла
+const swaggerUi = require("swagger-ui-express");
 
 // Подключение к MongoDB
 connectDB();
@@ -28,10 +28,11 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // Маршруты для авторизации и регистрации
 app.use("/api/auth", authRoutes);
 
-// Маршрут для работы с документами
-app.use("/api/documents", documentRoutes); // Подключаем маршруты документов
+// Маршруты для работы с документами
+app.use("/api/documents", documentRoutes);
 
-app.use("/api/files", fileRoutes); // Добавляем маршруты для работы с файлами
+// Маршруты для работы с файлами
+app.use("/api/files", fileRoutes);
 
 // Маршрут для работы с контрагентами
 app.use("/api/contractors", contractorRoutes);
