@@ -10,6 +10,7 @@ const authRoutes = require("./routes/authRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const fileRoutes = require("./routes/fileRoutes");
 const contractorRoutes = require("./routes/contractorRoutes");
+const patientRoutes = require("./routes/patientRoutes");
 const swaggerDocs = require("./config/swaggerDocs.json");
 const swaggerUi = require("swagger-ui-express");
 
@@ -36,6 +37,9 @@ app.use("/api/files", fileRoutes);
 
 // Маршрут для работы с контрагентами
 app.use("/api/contractors", contractorRoutes);
+
+// Маршрут для работы с пациентами
+app.use("/api/patients", patientRoutes)
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -36,6 +36,14 @@
     {
       "name": "Files",
       "description": "Эндпоинты для работы с файлами"
+    },
+    {
+      "name": "Patients",
+      "description": "Эндпоинты для работы с пациентами"
+    },
+    {
+      "name": "Contractors",
+      "description": "Эндпоинты для работы с контрагентами"
     }
   ],
   "paths": {
@@ -1632,7 +1640,7 @@
     "/api/contractors": {
       "get": {
         "tags": [
-          "Contractor"
+          "Contractors"
         ],
         "summary": "Получение списка контрагентов с фильтрами",
         "security": [
@@ -1694,7 +1702,7 @@
       },
       "post": {
         "tags": [
-          "Contractor"
+          "Contractors"
         ],
         "summary": "Создание контрагента",
         "description": "Создаёт нового контрагента для авторизованной клиники.",
@@ -1787,7 +1795,7 @@
     "/api/contractors/{contractorId}": {
       "delete": {
         "tags": [
-          "Contractor"
+          "Contractors"
         ],
         "summary": "Удаление контрагента",
         "description": "Удаляет контрагента, если у него нет связанных документов (пустой documentIds).",
@@ -1911,6 +1919,106 @@
           },
           "500": {
             "description": "Ошибка при получении документов контрагента"
+          }
+        }
+      }
+    },
+    "/api/patients/clinics": {
+      "get": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Получение списка клиник, взаимодействовавших с пациентом",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список клиник успешно получен",
+            "content": {
+              "application/json": {
+                "example": {
+                  "clinics": [
+                    {
+                      "clinicName": "ООО Докомед",
+                      "senderName": "Филимонов Виталий Алексеевич",
+                      "phoneNumber": "79009665643",
+                      "lastInteraction": "2025-03-09T20:09:29.521Z",
+                      "id": "67cdf5791df84a61db48e123"
+                    }
+                  ],
+                  "totalClinics": 1
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не авторизован"
+          },
+          "500": {
+            "description": "Ошибка сервера"
+          }
+        }
+      }
+    },
+    "/api/patients/clinics/{clinicId}/documents": {
+      "get": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Получение всех документов пациента от конкретной клиники",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clinicId",
+            "in": "path",
+            "required": true,
+            "description": "ID клиники",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Документы успешно получены",
+            "content": {
+              "application/json": {
+                "example": {
+                  "clinic": {
+                    "id": "67cdf5791df84a61db48e123",
+                    "clinicName": "ООО Докомед",
+                    "phoneNumber": "79009665643"
+                  },
+                  "documents": [
+                    {
+                      "_id": "67cdf5791df84a61db48e10a",
+                      "title": "Договор от 05.03.2025",
+                      "status": "Подготовлен",
+                      "createdAt": "2025-03-09T20:09:29.521Z",
+                      "sender": {},
+                      "recipient": {}
+                    }
+                  ],
+                  "totalDocuments": 1
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не авторизован"
+          },
+          "404": {
+            "description": "Клиника не найдена"
+          },
+          "500": {
+            "description": "Ошибка сервера"
           }
         }
       }
