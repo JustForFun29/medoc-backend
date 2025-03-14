@@ -426,26 +426,17 @@ exports.getDocumentsForPatient = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(pageSize)
-      .select("title sender status createdAt");
+      .select("title recipient sender status createdAt");
 
-    const groupedDocuments = documents.reduce((acc, doc) => {
-      const clinicName = doc.sender.clinicName;
-      if (!acc[clinicName]) {
-        acc[clinicName] = [];
-      }
-      acc[clinicName].push(doc);
-      return acc;
-    }, {});
+    const totalDocuments = await Document.countDocuments(filters);
 
     res.status(200).json({
-      groupedDocuments,
+      documents,
       pagination: {
-        total: await Document.countDocuments(filters),
+        total: totalDocuments,
         page: pageNumber,
         limit: pageSize,
-        totalPages: Math.ceil(
-          (await Document.countDocuments(filters)) / pageSize
-        ),
+        totalPages: Math.ceil(totalDocuments / pageSize),
       },
     });
   } catch (error) {
@@ -456,6 +447,7 @@ exports.getDocumentsForPatient = async (req, res) => {
     });
   }
 };
+
 
 exports.getDocumentById = async (req, res) => {
   const { documentId } = req.params;
