@@ -1,5 +1,9 @@
 // app.js
 const dotenv = require("dotenv");
+
+const http = require("http");
+const { initSocket } = require("./socket");
+
 // Загрузка переменных окружения
 dotenv.config();
 require("./utils/cronJobs"); // Подключаем cronjobs
@@ -39,7 +43,10 @@ app.use("/api/files", fileRoutes);
 app.use("/api/contractors", contractorRoutes);
 
 // Маршрут для работы с пациентами
-app.use("/api/patients", patientRoutes)
+app.use("/api/patients", patientRoutes);
+
+const server = http.createServer(app);
+initSocket(server);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

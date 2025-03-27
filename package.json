@@ -20,6 +20,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.16",
     "pizzip": "^3.1.8",
+    "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^11.0.3",
