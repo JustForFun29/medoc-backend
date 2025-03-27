@@ -1397,6 +1397,68 @@
         }
       }
     },
+    "/api/documents/download": {
+      "post": {
+        "tags": ["Document"],
+        "summary": "Скачивание одного или нескольких документов",
+        "description": "Позволяет скачать один документ напрямую или несколько документов в ZIP-архиве по их `documentIds`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "example": "660c1234567890abcdef0001"
+                    },
+                    "description": "Массив ID документов, которые необходимо скачать"
+                  }
+                },
+                "required": ["documentIds"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Файл или ZIP-архив с документами",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные данные запроса (например, пустой массив)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Документы не найдены"
+          },
+          "500": {
+            "description": "Внутренняя ошибка сервера"
+          }
+        }
+      }
+    },
     "/api/files": {
       "get": {
         "tags": ["Files"],
@@ -1758,7 +1820,7 @@
     },
     "/api/contractors/{contractorId}/documents": {
       "get": {
-        "tags": ["Document"],
+        "tags": ["Contractors"],
         "summary": "Получение документов контрагента",
         "description": "Возвращает все документы, связанные с указанным контрагентом, принадлежащим текущей клинике.",
         "security": [

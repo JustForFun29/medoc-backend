@@ -10,24 +10,52 @@ const documentController = require("../controllers/documentController");
 router.post("/send", authMiddleware, documentController.sendDocument);
 
 // [2] Отправка документа на подписание используя личный файл (POST /api/documents/upload-and-send)
-router.post("/upload-and-send", authMiddleware, upload.single("file"), documentController.uploadAndSendDocument);
+router.post(
+  "/upload-and-send",
+  authMiddleware,
+  upload.single("file"),
+  documentController.uploadAndSendDocument
+);
 
 // [3] Отправка СМС для пациента с ссылкой на подписание документа (POST /api/documents/send-on-sign)
-router.post("/send-on-sign", authMiddleware, documentController.sendSMSForSigning);
+router.post(
+  "/send-on-sign",
+  authMiddleware,
+  documentController.sendSMSForSigning
+);
 
 // [4] Удаление документа (DELETE /api/documents/delete/:documentId)
-router.delete("/delete/:documentId", authMiddleware, documentController.deleteDocument);
+router.delete(
+  "/delete/:documentId",
+  authMiddleware,
+  documentController.deleteDocument
+);
 
 // [5] Получение списка документов используя фильтры, для клиники (GET /api/documents/sent-documents)
-router.get("/sent-documents", authMiddleware, documentController.getSentDocuments);
+router.get(
+  "/sent-documents",
+  authMiddleware,
+  documentController.getSentDocuments
+);
 
 // [6] Получение списка документов используя фильтры, для пациента (GET /api/documents/for-patient)
-router.get("/for-patient", authMiddleware, documentController.getDocumentsForPatient);
+router.get(
+  "/for-patient",
+  authMiddleware,
+  documentController.getDocumentsForPatient
+);
 
-// [7] Получение документа и статуса подписания используя document ID (GET /api/documents/:documentId) 
+// [7] Получение документа и статуса подписания используя document ID (GET /api/documents/:documentId)
 router.get("/:documentId", authMiddleware, documentController.getDocumentById);
 
 // [8] Тестовый запрос для создания pdf файла из любого другого формата (POST /api/documents/generate-pdf)
-router.post("/generate-pdf", authMiddleware, documentController.generatePdfFromTemplate);
+router.post(
+  "/generate-pdf",
+  authMiddleware,
+  documentController.generatePdfFromTemplate
+);
+
+// [9] Скачивание одного или нескольких документов (POST /api/documents/download)
+router.post("/download", authMiddleware, documentController.downloadDocuments);
 
 module.exports = router;

@@ -4,13 +4,21 @@ const File = require("../models/File");
 const Clinic = require("../models/Clinic");
 const Contractor = require("../models/Contractor");
 const { randomUUID } = require("crypto");
-const { addDocumentToContractor } = require("../services/contractorService")
+const { addDocumentToContractor } = require("../services/contractorService");
 const { generatePdfFromDocxTemplate } = require("../services/templateService");
-const { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
+const {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} = require("@aws-sdk/client-s3");
 const s3Client = require("../utils/s3Client");
-const { streamToBuffer, moveObjectBetweenBuckets } = require("../utils/fileUtils");
+const {
+  streamToBuffer,
+  moveObjectBetweenBuckets,
+} = require("../utils/fileUtils");
 const { BUCKET_NAME } = require("../config");
 const axios = require("axios");
+const archiver = require("archiver");
 
 exports.sendDocument = async (req, res) => {
   try {
@@ -18,7 +26,8 @@ exports.sendDocument = async (req, res) => {
 
     if (!recipientName || !recipientPhoneNumber || !documentTitle) {
       return res.status(400).json({
-        message: "Ошибка: необходимо передать recipientName, recipientPhoneNumber и documentTitle",
+        message:
+          "Ошибка: необходимо передать recipientName, recipientPhoneNumber и documentTitle",
       });
     }
 
@@ -93,7 +102,8 @@ exports.sendDocument = async (req, res) => {
     );
 
     res.status(201).json({
-      message: "Процесс подписания успешно начат - документ подготовлен для отправки",
+      message:
+        "Процесс подписания успешно начат - документ подготовлен для отправки",
       document: {
         id: newDocument._id,
         documentTitle: newDocument.documentTitle,
@@ -115,7 +125,6 @@ exports.sendDocument = async (req, res) => {
   }
 };
 
-
 exports.uploadAndSendDocument = async (req, res) => {
   try {
     const { documentTitle, recipientName, recipientPhoneNumber } = req.body;
@@ -135,7 +144,10 @@ exports.uploadAndSendDocument = async (req, res) => {
       clinicId: clinic._id,
     });
 
-    if (existingContractor && existingContractor.firstName !== recipientName.split(" ")[1]) {
+    if (
+      existingContractor &&
+      existingContractor.firstName !== recipientName.split(" ")[1]
+    ) {
       return res.status(400).json({
         message: "Ошибка: номер телефона уже зарегистрирован с другим именем.",
       });
@@ -210,7 +222,6 @@ exports.uploadAndSendDocument = async (req, res) => {
     console.error("Ошибка при загрузке и отправке документа:", error);
     res.status(500).json({ message: "Ошибка при обработке запроса" });
   }
-
 };
 
 exports.sendSMSForSigning = async (req, res) => {
@@ -235,17 +246,21 @@ exports.sendSMSForSigning = async (req, res) => {
     //    - возможно, нуждается в API-ключе, токене и т.д.
     //    - возможно, нужно другое поле вместо "message" и "phoneNumber"
     // Примерно так:
-    const smsResponse = await axios.post("https://api.exolve.ru/messaging/v1/SendSMS", {
-      number: process.env.MTS_PHONE,
-      destination: doc.recipient.phoneNumber,
-      text: messageText,
-      // и любые другие нужные поля
-    }, {
-      headers: {
-        Authorization: `Bearer ${process.env.MTS_TOKEN}`,
-        "Content-Type": "application/json",
+    const smsResponse = await axios.post(
+      "https://api.exolve.ru/messaging/v1/SendSMS",
+      {
+        number: process.env.MTS_PHONE,
+        destination: doc.recipient.phoneNumber,
+        text: messageText,
+        // и любые другие нужные поля
       },
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.MTS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     // (Опционально) меняем статус на «Отправлен»
     // и фиксируем событие:
@@ -283,7 +298,7 @@ exports.deleteDocument = async (req, res) => {
 
     if (!["Подготовлен", "Отклонён"].includes(document.status)) {
       return res.status(400).json({
-        message: "Документ нельзя удалить, так как он уже подписан"
+        message: "Документ нельзя удалить, так как он уже подписан",
       });
     }
 
@@ -294,15 +309,17 @@ exports.deleteDocument = async (req, res) => {
 
     if (document.sender.phoneNumber !== clinic.phoneNumber) {
       return res.status(403).json({
-        message: "У вас нет прав на удаление этого документа"
+        message: "У вас нет прав на удаление этого документа",
       });
     }
 
     // Удалить физически из S3
-    await s3Client.send(new DeleteObjectCommand({
-      Bucket: document.bucket,
-      Key: document.objectKey
-    }));
+    await s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: document.bucket,
+        Key: document.objectKey,
+      })
+    );
 
     await Document.deleteOne({ _id: documentId });
 
@@ -319,7 +336,6 @@ exports.deleteDocument = async (req, res) => {
     });
   }
 };
-
 
 exports.getSentDocuments = async (req, res) => {
   try {
@@ -355,7 +371,7 @@ exports.getSentDocuments = async (req, res) => {
         docSent: "Отправлен",
         docRejected: "Отклонён",
         docSigned: "Подписан",
-        docPrepared: "Подготовлен"
+        docPrepared: "Подготовлен",
       };
 
       let statusArray = Array.isArray(status) ? status : [status];
@@ -407,7 +423,6 @@ exports.getSentDocuments = async (req, res) => {
   }
 };
 
-
 exports.getDocumentsForPatient = async (req, res) => {
   try {
     const { clinicName, page = 1, limit = 10 } = req.query;
@@ -448,7 +463,6 @@ exports.getDocumentsForPatient = async (req, res) => {
   }
 };
 
-
 exports.getDocumentById = async (req, res) => {
   const { documentId } = req.params;
 
@@ -460,7 +474,9 @@ exports.getDocumentById = async (req, res) => {
 
     // Если документ не в STANDARD — переносим обратно
     if (document.storageClass !== "STANDARD") {
-      console.log(`Переводим документ ${documentId} обратно в STANDARD-хранилище...`);
+      console.log(
+        `Переводим документ ${documentId} обратно в STANDARD-хранилище...`
+      );
 
       // Синхронный вызов moveObjectBetweenBuckets
       await moveObjectBetweenBuckets({
@@ -480,7 +496,7 @@ exports.getDocumentById = async (req, res) => {
 
     // Теперь документ точно лежит в STANDARD_BUCKET
     const getParams = {
-      Bucket: document.bucket,      // уже "docuflow-storage"
+      Bucket: document.bucket, // уже "docuflow-storage"
       Key: document.objectKey,
     };
 
@@ -497,7 +513,7 @@ exports.getDocumentById = async (req, res) => {
         storageClass: document.storageClass,
         lastAccessed: document.lastAccessed,
         createdAt: document.createdAt,
-        events: document.events
+        events: document.events,
       },
       fileContent: fileContent.toString("base64"),
     });
@@ -506,7 +522,6 @@ exports.getDocumentById = async (req, res) => {
     res.status(500).json({ message: "Ошибка при получении файла" });
   }
 };
-
 
 exports.generatePdfFromTemplate = async (req, res) => {
   try {
@@ -544,9 +559,76 @@ exports.generatePdfFromTemplate = async (req, res) => {
       success: true,
       pdfBase64,
     });
-
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Ошибка при генерации PDF", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Ошибка при генерации PDF", error: err.message });
+  }
+};
+
+exports.downloadDocuments = async (req, res) => {
+  try {
+    const { documentIds } = req.body;
+
+    if (!Array.isArray(documentIds) || documentIds.length === 0) {
+      return res.status(400).json({ message: "Передайте массив documentIds" });
+    }
+
+    const documents = await Document.find({ _id: { $in: documentIds } });
+
+    if (!documents.length) {
+      return res.status(404).json({ message: "Документы не найдены" });
+    }
+
+    // Один документ — отдаем напрямую
+    if (documents.length === 1) {
+      const doc = documents[0];
+      const getParams = {
+        Bucket: doc.bucket,
+        Key: doc.objectKey,
+      };
+
+      const s3Response = await s3Client.send(new GetObjectCommand(getParams));
+      const stream = s3Response.Body;
+
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${doc.title || "document"}.pdf"`
+      );
+      res.setHeader(
+        "Content-Type",
+        s3Response.ContentType || "application/pdf"
+      );
+
+      return stream.pipe(res);
+    }
+
+    // Несколько документов — собираем архив
+    res.setHeader("Content-Disposition", `attachment; filename=documents.zip`);
+    res.setHeader("Content-Type", "application/zip");
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    archive.pipe(res);
+
+    for (const doc of documents) {
+      const getParams = {
+        Bucket: doc.bucket,
+        Key: doc.objectKey,
+      };
+      const s3Response = await s3Client.send(new GetObjectCommand(getParams));
+      const fileStream = s3Response.Body;
+      const fileName = `${doc.title || doc._id}.pdf`;
+
+      archive.append(fileStream, { name: fileName });
+    }
+
+    await archive.finalize();
+  } catch (error) {
+    console.error("Ошибка при скачивании документов:", error);
+    res.status(500).json({
+      message: "Ошибка при скачивании документов",
+      error: error.message,
+    });
   }
 };
