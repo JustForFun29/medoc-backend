@@ -3,6 +3,8 @@ const Document = require("../models/Document");
 const File = require("../models/File");
 const Clinic = require("../models/Clinic");
 const Contractor = require("../models/Contractor");
+const path = require("path");
+const libre = require("libreoffice-convert");
 const { randomUUID } = require("crypto");
 const { addDocumentToContractor } = require("../services/contractorService");
 const { generatePdfFromDocxTemplate } = require("../services/templateService");
@@ -472,36 +474,63 @@ exports.getDocumentById = async (req, res) => {
       return res.status(404).json({ message: "Документ не найден" });
     }
 
-    // Если документ не в STANDARD — переносим обратно
+    // Переносим обратно в STANDARD, если не там
     if (document.storageClass !== "STANDARD") {
-      console.log(
-        `Переводим документ ${documentId} обратно в STANDARD-хранилище...`
-      );
+      console.log(`ℹ Перемещаем документ ${documentId} обратно в STANDARD-хранилище...`);
 
-      // Синхронный вызов moveObjectBetweenBuckets
       await moveObjectBetweenBuckets({
         sourceBucket: document.bucket,
-        targetBucket: BUCKET_NAME, // например, "docuflow-storage"
+        targetBucket: BUCKET_NAME,
         objectKey: document.objectKey,
       });
 
-      // Обновляем поля
       document.bucket = BUCKET_NAME;
       document.storageClass = "STANDARD";
     }
 
-    // В любом случае обновляем lastAccessed
     document.lastAccessed = new Date();
     await document.save();
 
-    // Теперь документ точно лежит в STANDARD_BUCKET
+    // Скачиваем файл из S3
     const getParams = {
-      Bucket: document.bucket, // уже "docuflow-storage"
+      Bucket: document.bucket,
       Key: document.objectKey,
     };
 
     const fileData = await s3Client.send(new GetObjectCommand(getParams));
-    const fileContent = await streamToBuffer(fileData.Body);
+    const fileBuffer = await streamToBuffer(fileData.Body);
+    const contentType = fileData.ContentType;
+
+    console.log(`📥 MIME-тип полученного файла: ${contentType}`);
+
+    // Определим, надо ли конвертировать
+    const isWordDoc = contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      contentType === "application/msword";
+
+    let finalBuffer = fileBuffer;
+
+    if (isWordDoc) {
+      console.log("🔄 Конвертация Word-документа в PDF...");
+      try {
+        finalBuffer = await new Promise((resolve, reject) => {
+          libre.convert(fileBuffer, ".pdf", undefined, (err, done) => {
+            if (err) {
+              console.error("❌ Ошибка при конвертации DOCX в PDF:", err);
+              return reject(err);
+            }
+            console.log("✅ Конвертация завершена");
+            resolve(done);
+          });
+        });
+      } catch (conversionError) {
+        return res.status(500).json({
+          message: "Ошибка при преобразовании Word-документа в PDF",
+          error: conversionError.message,
+        });
+      }
+    } else {
+      console.log("📄 Файл не Word-документ, возвращаем оригинал.");
+    }
 
     res.status(200).json({
       document: {
@@ -515,11 +544,11 @@ exports.getDocumentById = async (req, res) => {
         createdAt: document.createdAt,
         events: document.events,
       },
-      fileContent: fileContent.toString("base64"),
+      fileContent: finalBuffer.toString("base64"),
     });
   } catch (error) {
-    console.error("Ошибка при получении файла документа:", error);
-    res.status(500).json({ message: "Ошибка при получении файла" });
+    console.error("❌ Ошибка при получении файла документа:", error);
+    res.status(500).json({ message: "Ошибка при получении файла", error: error.message });
   }
 };
 
