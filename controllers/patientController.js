@@ -85,3 +85,63 @@ exports.getClinicDocumentsForPatient = async (req, res) => {
         res.status(500).json({ message: "Ошибка сервера" });
     }
 };
+
+// Получение одного документа пациента по его ID
+exports.getDocumentForPatient = async (req, res) => {
+    const { documentId } = req.params;
+    const phoneNumber = req.user.phoneNumber;
+
+    try {
+        const document = await Document.findById(documentId);
+        if (!document) {
+            return res.status(404).json({ message: "Документ не найден" });
+        }
+
+        // ⛔ Проверка: документ принадлежит пациенту
+        if (document.recipient.phoneNumber !== phoneNumber) {
+            return res.status(403).json({ message: "Нет доступа к этому документу" });
+        }
+
+        // Перенос из холодного хранилища при необходимости
+        if (document.storageClass !== "STANDARD") {
+            await moveObjectBetweenBuckets({
+                sourceBucket: document.bucket,
+                targetBucket: BUCKET_NAME,
+                objectKey: document.objectKey,
+            });
+
+            document.bucket = BUCKET_NAME;
+            document.storageClass = "STANDARD";
+        }
+
+        document.lastAccessed = new Date();
+        await document.save();
+
+        const fileData = await s3Client.send(
+            new GetObjectCommand({
+                Bucket: document.bucket,
+                Key: document.objectKey,
+            })
+        );
+
+        const fileBuffer = await streamToBuffer(fileData.Body);
+
+        res.status(200).json({
+            document: {
+                id: document._id,
+                title: document.title,
+                recipient: document.recipient,
+                sender: document.sender,
+                status: document.status,
+                storageClass: document.storageClass,
+                lastAccessed: document.lastAccessed,
+                createdAt: document.createdAt,
+                events: document.events,
+            },
+            fileContent: fileBuffer.toString("base64"),
+        });
+    } catch (error) {
+        console.error("Ошибка при получении документа пациента:", error);
+        res.status(500).json({ message: "Ошибка при получении документа" });
+    }
+};

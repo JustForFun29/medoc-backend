@@ -1,13 +1,13 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Medoc Backend API",
+    "title": "Docomed Backend API",
     "version": "1.0.0",
-    "description": "API документация для Medoc Backend"
+    "description": "API документация для Docomed"
   },
   "servers": [
     {
-      "url": "https://medoc.vastness.ru"
+      "url": "https://api.docomed.ru"
     }
   ],
   "components": {
@@ -49,7 +49,9 @@
   "paths": {
     "/api/auth/forgot-password": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Запрос сброса пароля",
         "description": "Отправляет письмо с уникальной ссылкой для сброса пароля.",
         "requestBody": {
@@ -86,7 +88,9 @@
     },
     "/api/auth/validate-reset-token": {
       "get": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Проверка токена сброса пароля",
         "parameters": [
           {
@@ -124,7 +128,9 @@
     },
     "/api/auth/reset-password": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Сброс пароля",
         "requestBody": {
           "required": true,
@@ -165,7 +171,9 @@
     },
     "/api/auth/change-password": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Изменение пароля",
         "security": [
           {
@@ -205,7 +213,9 @@
     },
     "/api/auth/register/user": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Регистрация нового пользователя",
         "requestBody": {
           "required": true,
@@ -246,7 +256,9 @@
     },
     "/api/auth/register/clinic": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Регистрация новой клиники",
         "description": "Создает новую клинику и возвращает JWT токен.",
         "requestBody": {
@@ -308,7 +320,9 @@
     },
     "/api/auth/login/user": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Авторизация пользователя",
         "description": "Логин пользователя с использованием номера телефона и пароля",
         "requestBody": {
@@ -346,7 +360,9 @@
     },
     "/api/auth/login/clinic": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Авторизация клиники",
         "description": "Выполняет логин клиники с использованием логина и пароля.",
         "requestBody": {
@@ -384,7 +400,9 @@
     },
     "/api/auth/me": {
       "get": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Получение данных текущего пользователя",
         "description": "Возвращает данные о текущем пользователе или клинике на основе JWT токена.",
         "security": [
@@ -440,7 +458,9 @@
     },
     "/api/auth/clinic/me": {
       "get": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Получение данных текущей клиники",
         "security": [
           {
@@ -498,7 +518,9 @@
     },
     "/api/documents/send": {
       "post": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Отправка документа на подписание",
         "description": "Отправляет документ на подписание определённому получателю.",
         "requestBody": {
@@ -604,7 +626,9 @@
     },
     "/api/documents/upload-and-send": {
       "post": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Загрузка файла и отправка на подписание",
         "description": "Загружает файл в хранилище и создаёт запись в базе данных для отправки на подписание.",
         "security": [
@@ -659,7 +683,9 @@
     },
     "/api/documents/delete/{documentId}": {
       "delete": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Удаление документа",
         "description": "Удаляет документ со статусами 'Отправлен' или 'Отклонён'.",
         "security": [
@@ -718,7 +744,9 @@
     },
     "/api/documents/sent-documents": {
       "get": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Получение отправленных документов",
         "description": "Возвращает список отправленных документов с фильтрацией и пагинацией.",
         "security": [
@@ -753,7 +781,11 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["docSent", "docRejected", "docSigned"]
+                "enum": [
+                  "docSent",
+                  "docRejected",
+                  "docSigned"
+                ]
               }
             },
             "description": "Фильтр по статусам: docSent = Отправлен, docRejected = Отклонён, docSigned = Подписан."
@@ -866,7 +898,9 @@
     },
     "/api/documents/for-patient": {
       "get": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Получение документов для пациента",
         "description": "Возвращает документы для пациента, сгруппированные по клиникам.",
         "security": [
@@ -968,7 +1002,9 @@
     },
     "/api/documents/test/document": {
       "get": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Тестовый маршрут для получения файла и данных документа",
         "description": "Возвращает захардкоженный документ и файл из S3 (PDF) в виде Base64, для теста.",
         "security": [
@@ -1025,7 +1061,9 @@
     },
     "/api/documents/send-on-sign": {
       "post": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Отправка SMS-приглашения на подписание",
         "description": "Отправляет SMS на номер получателя, уведомляя о необходимости подписать документ.",
         "security": [
@@ -1045,7 +1083,9 @@
                     "example": "64f2e9d1231f6b9530a42bbb"
                   }
                 },
-                "required": ["documentId"]
+                "required": [
+                  "documentId"
+                ]
               }
             }
           }
@@ -1086,7 +1126,9 @@
     },
     "/api/documents/generate-pdf": {
       "post": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Генерация PDF на основе DOCX-шаблона",
         "description": "Скачивает шаблон из S3, заполняет плейсхолдеры и конвертирует результат в PDF (base64).",
         "security": [
@@ -1155,7 +1197,9 @@
     },
     "/api/documents/test/move": {
       "post": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Тестовое перемещение объекта между бакетами",
         "description": "Используется для проверки переноса файла из одного хранилища S3 в другое.",
         "security": [
@@ -1183,7 +1227,11 @@
                     "example": "Клиника_Докомед_документы/1739904421818-3fdabdfd-0097-4342-889b-f0b947a6707d"
                   }
                 },
-                "required": ["sourceBucket", "targetBucket", "objectKey"]
+                "required": [
+                  "sourceBucket",
+                  "targetBucket",
+                  "objectKey"
+                ]
               }
             }
           }
@@ -1225,7 +1273,9 @@
     },
     "/api/documents/test/fetch-file": {
       "get": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Тестовый маршрут для получения файла из S3",
         "description": "Принимает bucket и objectKey как query-параметры, скачивает и возвращает файл в base64.",
         "security": [
@@ -1287,7 +1337,9 @@
     },
     "/api/documents/{documentId}": {
       "get": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Получение документа по ID (PDF в base64)",
         "description": "Загружает документ из базы, проверяет storageClass, при необходимости возвращает в STANDARD, затем скачивает из S3, возвращая base64-содержимое.",
         "security": [
@@ -1399,7 +1451,9 @@
     },
     "/api/documents/download": {
       "post": {
-        "tags": ["Document"],
+        "tags": [
+          "Document"
+        ],
         "summary": "Скачивание одного или нескольких документов",
         "description": "Позволяет скачать один документ напрямую или несколько документов в ZIP-архиве по их `documentIds`.",
         "security": [
@@ -1423,7 +1477,9 @@
                     "description": "Массив ID документов, которые необходимо скачать"
                   }
                 },
-                "required": ["documentIds"]
+                "required": [
+                  "documentIds"
+                ]
               }
             }
           }
@@ -1454,7 +1510,9 @@
     },
     "/api/files": {
       "get": {
-        "tags": ["Files"],
+        "tags": [
+          "Files"
+        ],
         "summary": "Получение списка файлов",
         "security": [
           {
@@ -1473,7 +1531,9 @@
     },
     "/api/files/upload": {
       "post": {
-        "tags": ["Files"],
+        "tags": [
+          "Files"
+        ],
         "summary": "Загрузка файла и генерация PDF/PNG превью",
         "security": [
           {
@@ -1498,7 +1558,10 @@
                     "type": "boolean"
                   }
                 },
-                "required": ["file", "documentTitle"]
+                "required": [
+                  "file",
+                  "documentTitle"
+                ]
               }
             }
           }
@@ -1518,7 +1581,9 @@
     },
     "/api/files/{id}": {
       "delete": {
-        "tags": ["Files"],
+        "tags": [
+          "Files"
+        ],
         "summary": "Удаление файла по ID",
         "security": [
           {
@@ -1553,7 +1618,9 @@
     },
     "/api/files/{id}/pdf": {
       "get": {
-        "tags": ["Files"],
+        "tags": [
+          "Files"
+        ],
         "summary": "Получение PDF-превью файла",
         "security": [
           {
@@ -1591,7 +1658,9 @@
     },
     "/api/files/{id}/png": {
       "get": {
-        "tags": ["Files"],
+        "tags": [
+          "Files"
+        ],
         "summary": "Получение PNG-превью файла",
         "security": [
           {
@@ -1629,7 +1698,9 @@
     },
     "/api/contractors": {
       "get": {
-        "tags": ["Contractors"],
+        "tags": [
+          "Contractors"
+        ],
         "summary": "Получение списка контрагентов с фильтрами",
         "security": [
           {
@@ -1672,7 +1743,10 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["true", "false"]
+              "enum": [
+                "true",
+                "false"
+              ]
             }
           }
         ],
@@ -1686,7 +1760,9 @@
         }
       },
       "post": {
-        "tags": ["Contractors"],
+        "tags": [
+          "Contractors"
+        ],
         "summary": "Создание контрагента",
         "description": "Создаёт нового контрагента для авторизованной клиники.",
         "security": [
@@ -1718,7 +1794,11 @@
                     "example": "79999999999"
                   }
                 },
-                "required": ["firstName", "lastName", "phoneNumber"]
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "phoneNumber"
+                ]
               }
             }
           }
@@ -1773,7 +1853,9 @@
     },
     "/api/contractors/{contractorId}": {
       "delete": {
-        "tags": ["Contractors"],
+        "tags": [
+          "Contractors"
+        ],
         "summary": "Удаление контрагента",
         "description": "Удаляет контрагента, если у него нет связанных документов (пустой documentIds).",
         "security": [
@@ -1813,7 +1895,9 @@
     },
     "/api/contractors/{contractorId}/documents": {
       "get": {
-        "tags": ["Contractors"],
+        "tags": [
+          "Contractors"
+        ],
         "summary": "Получение документов контрагента",
         "description": "Возвращает все документы, связанные с указанным контрагентом, принадлежащим текущей клинике.",
         "security": [
@@ -1898,9 +1982,129 @@
         }
       }
     },
+    "/api/patients/documents/{documentId}": {
+      "get": {
+        "tags": [
+          "Patients"
+        ],
+        "summary": "Получение одного документа пациента",
+        "description": "Возвращает документ, предназначенный для пациента, только если он принадлежит авторизованному пользователю (по номеру телефона). Также возвращает содержимое файла в base64.",
+        "parameters": [
+          {
+            "name": "documentId",
+            "in": "path",
+            "description": "ID документа",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "66048fe2a918bb001ad9cb1f"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Документ найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "document": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "recipient": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "phoneNumber": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "sender": {
+                          "type": "object",
+                          "properties": {
+                            "clinicName": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "phoneNumber": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "storageClass": {
+                          "type": "string"
+                        },
+                        "lastAccessed": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "createdAt": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "events": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "timestamp": {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "fileContent": {
+                      "type": "string",
+                      "description": "Документ в base64"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Нет доступа к документу"
+          },
+          "404": {
+            "description": "Документ не найден"
+          },
+          "500": {
+            "description": "Ошибка сервера"
+          }
+        }
+      }
+    },
     "/api/patients/clinics": {
       "get": {
-        "tags": ["Patients"],
+        "tags": [
+          "Patients"
+        ],
         "summary": "Получение списка клиник, взаимодействовавших с пациентом",
         "security": [
           {
@@ -1938,7 +2142,9 @@
     },
     "/api/patients/clinics/{clinicId}/documents": {
       "get": {
-        "tags": ["Patients"],
+        "tags": [
+          "Patients"
+        ],
         "summary": "Получение всех документов пациента от конкретной клиники",
         "security": [
           {
@@ -1996,9 +2202,11 @@
     },
     "/ws/document-signing": {
       "get": {
-        "tags": ["WebSocket"],
+        "tags": [
+          "WebSocket"
+        ],
         "summary": "WebSocket подключение для подписания документов",
-        "description": "**WebSocket URL:** `wss://medoc.vastness.ru`\n\n Используется для отслеживания событий по подписанию документов в реальном времени.\n\n **События**:\n - `joinDocument` – подключение к комнате документа.\n - Пример: `{ documentId: 'abc123', role: 'clinic' | 'patient' }`\n\n - `documentSigned` – уведомление, что документ подписан.\n - Ответ: `{ documentId: 'abc123', timestamp: '2025-03-27T10:00:00Z' }`\n\n - `patientSigned` – отправляется клиентом при завершении подписи.\n - Пример: `{ documentId: 'abc123' }`\n\n **Роли**:\n - `clinic`: слушает события\n - `patient`: отправляет событие подписания\n\n WebSocket подключение не требует отдельной авторизации. Все события отправляются через `socket.emit(...)`.",
+        "description": "**WebSocket URL:** `wss://api.docomed.ru`\n\n Используется для отслеживания событий по подписанию документов в реальном времени.\n\n **События**:\n - `joinDocument` – подключение к комнате документа.\n - Пример: `{ documentId: 'abc123', role: 'clinic' | 'patient' }`\n\n - `documentSigned` – уведомление, что документ подписан.\n - Ответ: `{ documentId: 'abc123', timestamp: '2025-03-27T10:00:00Z' }`\n\n - `patientSigned` – отправляется клиентом при завершении подписи.\n - Пример: `{ documentId: 'abc123' }`\n\n **Роли**:\n - `clinic`: слушает события\n - `patient`: отправляет событие подписания\n\n WebSocket подключение не требует отдельной авторизации. Все события отправляются через `socket.emit(...)`.",
         "responses": {
           "101": {
             "description": "WebSocket соединение установлено"

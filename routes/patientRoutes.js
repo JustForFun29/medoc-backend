@@ -9,4 +9,7 @@ router.get("/clinics", authMiddleware, patientController.getClinicsForPatient);
 // [2] Получение документов пациента от конкретной клиники по её id
 router.get("/clinics/:clinicId/documents", authMiddleware, patientController.getClinicDocumentsForPatient);
 
+// [3] Получение одного документа пациента по его ID
+router.get("/documents/:documentId", authMiddleware, patientController.getDocumentForPatient);
+
 module.exports = router;
